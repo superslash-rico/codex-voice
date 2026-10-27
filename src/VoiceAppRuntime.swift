@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 import Darwin
+import ApplicationServices
 
 final class ReminderPanel: NSPanel {
     override var canBecomeKey: Bool { true }
@@ -43,6 +44,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     var menuTrackingDepth=0
     var menuObservers:[NSObjectProtocol]=[]
     lazy var passport = PassportLink { [weak self] event in self?.send(event) }
+    var approvalDiagnosticMarker = ""
+    lazy var computerApprovals: ComputerUseApprovalMonitor = {
+        let monitor = ComputerUseApprovalMonitor()
+        monitor.emit = { [weak self] in self?.send($0) }
+        monitor.report = { [weak self] state, count in
+            guard let self else { return }
+            if self.model.computerApprovalStatus != state { self.model.computerApprovalStatus = state }
+            let marker = "\(state)|\(count)|\(self.model.computerApprovalEnabled)"
+            guard marker != self.approvalDiagnosticMarker else { return }
+            self.approvalDiagnosticMarker = marker
+            let report: [String: Any] = ["at": Date().timeIntervalSince1970, "enabled": self.model.computerApprovalEnabled, "state": state, "visibleCards": count]
+            if let data = try? JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]) {
+                let path = AppPaths.runtime.appendingPathComponent("computer-use-approval-state.json")
+                try? data.write(to: path, options: .atomic)
+                try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: path.path)
+            }
+        }
+        return monitor
+    }()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -61,6 +81,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.hide = { [weak self] in self?.hidePanel("manual-hide") }
         model.retry = { [weak self] in self?.manualReconnect() }
         model.setupPassport = { [weak self] in self?.passport.dictation.showSetup() }
+        model.computerApprovalEnabled = UserDefaults.standard.bool(forKey: ComputerUseApprovalMonitor.preference)
+        model.changeComputerApproval = { [weak self] enabled in
+            UserDefaults.standard.set(enabled, forKey: ComputerUseApprovalMonitor.preference)
+            self?.model.computerApprovalEnabled = enabled
+            self?.computerApprovals.reset()
+        }
+        model.openApprovalAccess = {
+            let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(options)
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") { NSWorkspace.shared.open(url) }
+        }
         model.connectCodex = { [weak self] in self?.installConnection() }
         model.maximumListHeight = max(110, min(340, (NSScreen.main?.visibleFrame.height ?? 900) - 520))
         model.maximumSettingsHeight = max(160, min(540, (NSScreen.main?.visibleFrame.height ?? 900) - 190))
@@ -74,7 +105,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         refreshClock()
         refreshConnection()
         if !CommandLine.arguments.contains("--background") { showWindow() }
-        clock = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.refreshClock() }
+        clock = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            self.refreshClock()
+            self.computerApprovals.tick(enabled: self.model.computerApprovalEnabled && self.model.enabled && self.model.connected && !self.sleeping && !self.quitting)
+        }
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(willSleep), name: NSWorkspace.willSleepNotification, object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(didWake), name: NSWorkspace.didWakeNotification, object: nil)
         NSWorkspace.shared.notificationCenter.addObserver(self,selector:#selector(frontApplicationChanged),name:NSWorkspace.didActivateApplicationNotification,object:nil)
@@ -152,6 +187,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func startEngine() {
+        computerApprovals.reset(notify: false)
         guard !quitting else { return }
         guard process?.isRunning != true else { return }
         do { try AppPaths.prepare() }
@@ -248,6 +284,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc func willSleep() {
+        computerApprovals.reset()
         passport.dictation.reset()
         sleeping = true
         send(["action":"prepare_sleep"])
@@ -439,6 +476,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool { showWindow(); return true }
     func applicationWillTerminate(_ notification: Notification) {
+        computerApprovals.reset()
         quitting = true
         endOutsideMouseMonitoring()
         menuObservers.forEach {NotificationCenter.default.removeObserver($0)}

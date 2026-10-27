@@ -91,6 +91,8 @@ final class VoicePanelModel: ObservableObject {
     @Published var connectionConfigured = false
     @Published var connectionMessage = "正在检查连接"
     @Published var startupEnabled = false
+    @Published var computerApprovalEnabled = false
+    @Published var computerApprovalStatus = "未开启"
     @Published var serviceError: String?
     @Published var serviceRecovering = false
     @Published var recentTitle: String?
@@ -104,6 +106,8 @@ final class VoicePanelModel: ObservableObject {
     var retry: () -> Void = {}
     var connectCodex: () -> Void = {}
     var setupPassport: () -> Void = {}
+    var changeComputerApproval: (Bool) -> Void = { _ in }
+    var openApprovalAccess: () -> Void = {}
 
     var alerts: [VoiceAlert] {
         let items = (snapshot["alerts"] as? [[String: Any]] ?? []).compactMap(VoiceAlert.init)
@@ -532,6 +536,22 @@ struct VoicePanelView: View {
                     Button("设置") { model.quietHoursOpen = true }.buttonStyle(PanelButtonStyle()).disabled(!model.connected)
                 }
             }.background(VoiceTheme.paper).clipShape(RoundedRectangle(cornerRadius: 14)).overlay(RoundedRectangle(cornerRadius: 14).stroke(VoiceTheme.line, lineWidth: 1)).padding(.top, 12)
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Computer Use 授权提醒").font(VoiceTheme.font(13, medium: true))
+                    Spacer()
+                    Toggle("识别 Computer Use 授权卡片", isOn: Binding(get: { model.computerApprovalEnabled }, set: model.changeComputerApproval))
+                        .toggleStyle(PersistentSwitchStyle()).labelsHidden()
+                }
+                Text("通过辅助功能识别 Codex 当前窗口中的应用授权卡片，仅用于提醒；审批仍由你处理。默认关闭。")
+                    .font(VoiceTheme.font(11)).foregroundColor(VoiceTheme.secondary).fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Text(model.computerApprovalStatus).font(VoiceTheme.font(10)).foregroundColor(VoiceTheme.secondary)
+                    Spacer()
+                    Button("输入与识别权限", action: model.openApprovalAccess).buttonStyle(PanelButtonStyle())
+                }
+            }.padding(13).background(VoiceTheme.paper).clipShape(RoundedRectangle(cornerRadius: 14))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(VoiceTheme.line, lineWidth: 1)).padding(.top, 12)
             settingRow("AI Passport", "独立管理连接、配件播报与屏保昵称") {
                 Button("设置") {model.passportSettingsOpen=true}.buttonStyle(PanelButtonStyle())
             }.padding(.top,12)

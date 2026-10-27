@@ -35,7 +35,7 @@ USAGE_LOW_ID = "usage-low:"
 USAGE_LOW_PREVIEW_ID = USAGE_LOW_ID + "preview"
 DEFAULT_PAUSE_MINUTES = 15
 KINDS = {"approval": "等待审批", "question": "等待回答", "result": "已有结果", "blocked": "需要关注", "test": "播报测试"}
-VERSION = "0.9.1-beta.1"
+VERSION = "0.9.2-approval.1"
 
 
 def clean_label(value, fallback="当前任务"):
@@ -551,6 +551,17 @@ class Engine:
 
     def event(self, event):
         action = event.get("action", "add")
+        if action == "desktop_approval":
+            key = event.get("id", "")
+            if not isinstance(key, str) or not re.fullmatch(r"desktop-approval:[0-9a-f-]{36}", key) or type(event.get("active")) is not bool:
+                return False
+            if event["active"]:
+                title = clean_label(event.get("title", "应用访问授权"))
+                self.add({"id": key, "kind": "approval", "title": "应用授权 · " + title,
+                          "detail": "Computer Use 应用访问授权；请在 Codex 中处理，接手只停止提醒。", "source": "desktop-approval", "delay": 3})
+            else:
+                self.resolve(key, "授权卡片已离开当前界面")
+            return True
         if action == "set_passport_settings":
             try:
                 self.speaker.configure_passport(event.get("settings"))

@@ -86,7 +86,7 @@ class RecoveryStore:
 
     @staticmethod
     def valid_alert(raw):
-        if not isinstance(raw, dict) or raw.get("kind") not in {"result", "approval", "question", "blocked"} or raw.get("test"):
+        if not isinstance(raw, dict) or raw.get("kind") not in {"result", "approval", "question", "blocked"} or raw.get("test") or raw.get("source") == "desktop-approval":
             return None
         for key in ("id", "thread", "turn", "title", "detail", "requestId", "source"):
             if not isinstance(raw.get(key, ""), str) or len(raw.get(key, "")) > (512 if key == "detail" else 256):
@@ -106,7 +106,7 @@ class RecoveryStore:
     def save(self, engine, adapter, force=False):
         if not force and time.monotonic() - self.last_write < .75:
             return
-        data = {"version": 1, "alerts": [a for a in engine.alerts.values() if not a["test"]],
+        data = {"version": 1, "alerts": [a for a in engine.alerts.values() if not a["test"] and a.get("source") != "desktop-approval"],
                 "seen": list(engine.seen)[-5000:], "mutedUntil": engine.muted_until,
                 "positions": adapter.positions, "calls": dict(list(adapter.calls.items())[-500:]),
                 "inFlight": engine.speaker.alert_id if engine.speaker.busy() and engine.speaker.alert_id in engine.alerts else None}

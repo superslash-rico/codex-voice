@@ -138,7 +138,7 @@ def main():
     resources = app/"Contents/Resources";resources.mkdir(parents=True)
     (app/"Contents/MacOS").mkdir()
     (app/"Contents/Frameworks").mkdir()
-    info = {"CFBundleDisplayName":"Codex 语音提醒", "CFBundleName":"CodexVoice", "CFBundleExecutable":"CodexVoice", "CFBundleIdentifier":"local.rico.CodexVoice", "CFBundlePackageType":"APPL", "CFBundleShortVersionString":VERSION.split("-")[0], "CFBundleVersion":"37", "CodexVoiceVersion":VERSION, "LSMinimumSystemVersion":"13.0", "LSUIElement":True, "NSHighResolutionCapable":True, "CFBundleIconFile":"AppIcon.icns"}
+    info = {"CFBundleDisplayName":"Codex 语音提醒", "CFBundleName":"CodexVoice", "CFBundleExecutable":"CodexVoice", "CFBundleIdentifier":"local.rico.CodexVoice", "CFBundlePackageType":"APPL", "CFBundleShortVersionString":VERSION.split("-")[0], "CFBundleVersion":"38", "CodexVoiceVersion":VERSION, "LSMinimumSystemVersion":"13.0", "LSUIElement":True, "NSHighResolutionCapable":True, "CFBundleIconFile":"AppIcon.icns"}
     if args.passport_test:
         info.update(CFBundleDisplayName="Codex 工牌联调", CFBundleName="CodexPassport",
                     CFBundleIdentifier="local.rico.CodexVoice.Passport", CFBundleVersion="30")
@@ -149,7 +149,7 @@ def main():
         shutil.copy2(ROOT/"src"/name, resources/name)
     shutil.copy2(ROOT/"assets/passport/ai-passport-front.png",resources/"AIPassport.png")
     shutil.copy2(ROOT/"assets/passport/nomi-idle.png",resources/"PetNOMI.png")
-    compile_universal(build, app/"Contents/MacOS/CodexVoice", [ROOT/"src"/name for name in ["VoiceApp.swift","AppPaths.swift","VoiceAppRuntime.swift","VoicePanel.swift","SpeechSettingsView.swift","PanelChrome.swift","UsageView.swift","UsageGauge.swift","SubscriptionLinkView.swift","ReminderSettingsView.swift","ServiceRecovery.swift","PassportProtocol.swift","PassportLink.swift","PassportAudio.swift","PassportSpeech.swift","PassportDictation.swift","PassportInput.swift","PassportSettingsView.swift","PassportPetAsset.swift","PassportPetSync.swift"]], ["AppKit","SwiftUI","CoreBluetooth","CryptoKit","Speech","AVFoundation","ApplicationServices","ImageIO"])
+    compile_universal(build, app/"Contents/MacOS/CodexVoice", [ROOT/"src"/name for name in ["VoiceApp.swift","AppPaths.swift","VoiceAppRuntime.swift","VoicePanel.swift","SpeechSettingsView.swift","PanelChrome.swift","UsageView.swift","UsageGauge.swift","SubscriptionLinkView.swift","ReminderSettingsView.swift","ServiceRecovery.swift","ComputerUseApproval.swift","PassportProtocol.swift","PassportLink.swift","PassportAudio.swift","PassportSpeech.swift","PassportDictation.swift","PassportInput.swift","PassportSettingsView.swift","PassportPetAsset.swift","PassportPetSync.swift"]], ["AppKit","SwiftUI","CoreBluetooth","CryptoKit","Speech","AVFoundation","ApplicationServices","ImageIO"])
     compile_universal(build, resources/"AudioDeviceInfo", [ROOT/"src/AudioDeviceInfo.swift"], ["CoreAudio"])
     expanded = acquire_runtime(args.cache.resolve())
     binaries = embed_runtime(expanded, app/"Contents/Frameworks/Python.framework")

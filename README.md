@@ -4,7 +4,7 @@
 
 一个运行在 Mac 菜单栏里的免费本地提醒工具：任务有结果、等待审批或需要回答时，用声音和卡片通知你。有 AI Passport 工牌时，还能把任务、剩余用量和宠物带在身边，按住工牌确认键向电脑听写。
 
-[**下载 Mac 安装包 · v0.9.1-beta.1**](https://github.com/superslash-rico/codex-voice/releases/download/v0.9.1-beta.1/CodexVoice-0.9.1-beta.1-universal.dmg) · [全部下载与固件](https://github.com/superslash-rico/codex-voice/releases/tag/v0.9.1-beta.1) · [AI Passport 入门](docs/AI_PASSPORT.md) · [更新日志](CHANGELOG.md)
+[**下载 Mac 安装包 · v0.9.2-approval.1**](https://github.com/superslash-rico/codex-voice/releases/download/v0.9.2-approval.1/CodexVoice-0.9.2-approval.1-universal.dmg) · [全部下载与固件](https://github.com/superslash-rico/codex-voice/releases/tag/v0.9.2-approval.1) · [AI Passport 入门](docs/AI_PASSPORT.md) · [更新日志](CHANGELOG.md)
 
 > ### ChatGPT / Codex 订阅与充值 → [slashx.shop](https://slashx.shop/)
 >
@@ -26,6 +26,7 @@
 | 能力 | 可以怎样使用 |
 | --- | --- |
 | 本地任务提醒 | 多聊天分别接手、重新播报、稍后提醒、全部接手 |
+| Computer Use 应用授权 | 可选识别 Codex 已打开窗口中的应用授权卡片，提醒你允许或拒绝 |
 | 可配置声音 | 系统音色、语速、称呼、三档重复间隔、按类别静音或限次 |
 | 暂停与免打扰 | 记住暂停时长，支持跨午夜时段和审批例外 |
 | Codex 剩余用量 | 菜单栏百分比、首页小圆环、详情大圆环与周期、低额度和重置提醒 |
@@ -40,7 +41,7 @@
 
 ### 1. 下载并打开
 
-从 [Releases](https://github.com/superslash-rico/codex-voice/releases/tag/v0.9.1-beta.1) 下载 `CodexVoice-0.9.1-beta.1-universal.dmg`，打开后将 **Codex 语音提醒.app** 拖到 **Applications / 应用程序**，再从应用程序启动。也提供 ZIP 和 `SHA256SUMS.txt`。
+从 [Releases](https://github.com/superslash-rico/codex-voice/releases/tag/v0.9.2-approval.1) 下载 `CodexVoice-0.9.2-approval.1-universal.dmg`，打开后将 **Codex 语音提醒.app** 拖到 **Applications / 应用程序**，再从应用程序启动。也提供 ZIP 和 `SHA256SUMS.txt`。
 
 - 普通提醒、用量及配件同步面向 **macOS 13+**；工牌听写另需 **macOS 26+**。
 - 同一安装包包含 **Apple 芯片和 Intel** 两种架构；实机测试为 Apple 芯片 Mac，Intel 和旧系统未实机验收。
@@ -50,7 +51,7 @@
 下载文件校验示例（在下载目录运行，对照同一 Release 的 `SHA256SUMS.txt`）：
 
 ```sh
-shasum -a 256 CodexVoice-0.9.1-beta.1-universal.dmg
+shasum -a 256 CodexVoice-0.9.2-approval.1-universal.dmg
 ```
 
 ### 2. 连接本机 Codex
@@ -83,6 +84,14 @@ shasum -a 256 CodexVoice-0.9.1-beta.1-universal.dmg
 - **按类型设置提醒**：完成、审批、提问、异常可分别静音、限播 1–99 次或持续提醒，卡片仍保留。
 - **定时免打扰**：按本机时间设置每周日期与时段，可跨午夜，默认关闭；允许审批出声的例外仍受总开关和手动暂停约束。
 
+### Computer Use 的“允许使用应用”也能提醒
+
+从 **v0.9.2-approval.1** 起，可在 **提醒设置 → Computer Use 授权提醒** 中启用应用授权卡片识别。**此项默认关闭，升级后请按需手动开启**，并允许本应用的辅助功能/设备控制权限。
+
+它只读识别 Codex 已打开窗口中的“允许 ChatGPT 使用某个应用”卡片，沿用你的审批声音、电脑/工牌输出、暂停与免打扰规则。“已接手”只停止提醒，允许或拒绝仍由你在 Codex 中完成。
+
+这项兼容识别不保证覆盖未展开的后台聊天、其他客户端或未来界面版本；普通命令审批继续使用原有事件流程。详细行为和权限说明见 [应用授权提醒](docs/APPROVAL_COMPATIBILITY.md)。
+
 ### 用量：一眼看到还有多少
 
 首页保留小圆环和百分比，点击进入详情再看大圆环、各周期和重置时间。通过本机官方 Codex 的只读账号接口约每分钟同步，多个周期取剩余最少的一项；**不是 Token 消耗统计，也不代表全部付费余额**。
@@ -99,6 +108,8 @@ shasum -a 256 CodexVoice-0.9.1-beta.1-universal.dmg
 ## 有 AI Passport？把它变成 Codex 配件
 
 支持的是 **FoloToy AI Passport，ESP32-C3、8 MB Flash、无 PSRAM** 的这款硬件，不能只按“也是 ESP32”刷入其他板卡。
+
+本次仅更新电脑端；配套 `0.3.0-pets` 工牌固件与上一版一致，已有工牌可继续使用。
 
 1. 下载同一 Release 中的 **`AI-Passport-Codex-0.3.0-pets-full.bin`** 和校验文件。
 2. 按 [AI Passport 手把手指南](docs/AI_PASSPORT.md) 核对设备、刷写和首次配对。
@@ -128,7 +139,7 @@ shasum -a 256 CodexVoice-0.9.1-beta.1-universal.dmg
 
 设置和运行数据位于 `~/Library/Application Support/CodexVoice/`。提醒来自本机 Codex 事件和观察器；用量通过官方客户端只读查询，不自行读取登录令牌、不购买或消耗重置额度。必要的任务元数据和恢复检查点以受限文件权限保存在本机。
 
-启用工牌才申请蓝牙；只有听写落字需要辅助功能/设备控制权限。音频来自工牌麦克风，通过加密配对的 BLE 传到 Mac，用 Apple 本机语音模型识别，不上传录音、不保存音频文件，也不申请 Mac 麦克风权限。文字写入使用临时剪贴板并尽力恢复原内容；若用户期间复制新内容则保留新剪贴板。
+启用工牌才申请蓝牙；听写落字及可选的 Computer Use 授权识别需要辅助功能/设备控制权限。授权识别默认关闭，只提取应用名与卡片存续，不保存聊天正文或截图，也不代点审批。音频来自工牌麦克风，通过加密配对的 BLE 传到 Mac，用 Apple 本机语音模型识别，不上传录音、不保存音频文件，也不申请 Mac 麦克风权限。文字写入使用临时剪贴板并尽力恢复原内容；若用户期间复制新内容则保留新剪贴板。
 
 宠物同步读取选中形象对应的配置与本地图片缓存，不读取 Cookie 或认证文件，不保存带签名的下载地址。第三方订阅入口仅在主动点击时打开网站，网页行为遵循网站自身说明。详细数据边界见 [开发与部署说明](docs/DEVELOPMENT.md)。
 

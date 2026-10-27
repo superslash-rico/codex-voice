@@ -1,6 +1,6 @@
 # AI Passport：从拿到硬件到连上 Codex
 
-[返回项目首页](../README.md) · [下载本版全部文件](https://github.com/superslash-rico/codex-voice/releases/tag/v0.9.1-beta.1) · [固件源码](../firmware/ai-passport/)
+[返回项目首页](../README.md) · [下载本版全部文件](https://github.com/superslash-rico/codex-voice/releases/tag/v0.9.2-approval.1) · [固件源码](../firmware/ai-passport/)
 
 这份指南面向第一次刷固件的用户。没有工牌时只安装 Mac 工具即可；本版的电脑端和工牌配件已整合为一个软件。
 
@@ -23,12 +23,12 @@
 
 ### 第一步：下载并校验
 
-从同一 [Release](https://github.com/superslash-rico/codex-voice/releases/tag/v0.9.1-beta.1) 下载：
+从同一 [Release](https://github.com/superslash-rico/codex-voice/releases/tag/v0.9.2-approval.1) 下载：
 
 - `AI-Passport-Codex-0.3.0-pets-full.bin`：刷写用的完整镜像。
 - `AI-Passport-Codex-0.3.0-pets.zip`：包含相同完整镜像、分段文件、分区信息、刷写说明及校验值的固件包。
 - `SHA256SUMS.txt`：同版发行文件校验值。
-- `CodexVoice-0.9.1-beta.1-universal.dmg`：Mac 工具。
+- `CodexVoice-0.9.2-approval.1-universal.dmg`：Mac 工具。
 
 在下载目录执行并对照 Release 中的值：
 
