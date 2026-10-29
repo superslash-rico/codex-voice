@@ -1,5 +1,5 @@
 idf_component_register(
-    SRCS "companion_app.c" "companion_model.c" "companion_ble.c" "companion_ui.c" "companion_voice.c" "companion_cue.c" "companion_pet_store.c" "companion_pet.c"
+    SRCS "companion_app.c" "companion_model.c" "companion_presenter.c" "companion_ble.c" "companion_ui.c" "companion_voice.c" "companion_cue.c" "companion_pet_store.c" "companion_pet.c"
          "../assets/fonts/cp_font16.c" "../assets/fonts/cp_font20.c" "../assets/fonts/cp_digits58.c"
     INCLUDE_DIRS "."
     REQUIRES bsp bt esp_event esp_hw_support esp_timer nvs_flash json esp_partition mbedtls

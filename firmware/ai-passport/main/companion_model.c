@@ -56,6 +56,9 @@ int cp_phrase(const char *s)
 
 bool cp_model_apply(cp_model_t *m, const cp_model_t *in, uint64_t now)
 {
+    if (in->presenter_status<0 || in->presenter_status>3 || in->presenter_target<0 || in->presenter_target>3 ||
+        (in->presenter_supported && !cp_token_valid(in->presenter_lease)) ||
+        (in->presenting && !in->presenter_supported) || (in->presenter_ready && !in->presenting)) return false;
     if (!cp_token_valid(in->epoch) || in->count < 0 || in->count > CP_ALERTS ||
         in->total < in->count || in->total > 10000 ||
         in->quota_count < 0 || in->quota_count > 2 || in->usage_age < 0 ||
@@ -102,7 +105,7 @@ void cp_model_select(cp_model_t *m, int delta)
 
 bool cp_can_play(const cp_model_t *m, const char *epoch, uint64_t now)
 {
-    return m->online && m->enabled && !m->muted && epoch &&
+    return m->online && m->enabled && !m->muted && !m->presenting && epoch &&
            !strcmp(m->epoch, epoch) && now >= m->updated_ms && now - m->updated_ms <= 10000;
 }
 

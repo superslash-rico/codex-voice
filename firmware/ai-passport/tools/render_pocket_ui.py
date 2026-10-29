@@ -28,10 +28,10 @@ target_link_libraries(pocket_render PRIVATE lvgl::lvgl m)
     (source/'CMakeLists.txt').write_text(cmake)
     subprocess.run(['cmake','-S',str(source),'-B',str(host/'cmake'),'-G','Ninja'],check=True)
     subprocess.run(['cmake','--build',str(host/'cmake'),'-j','8'],check=True)
-    subprocess.run([str(host/'cmake/pocket_render'),str(host)]+([str(args.pet.resolve())] if args.pet else []),check=True)
+    subprocess.run([str(host/'cmake/pocket_render'),str(host)]+([str(args.pet.resolve())] if args.pet else []),check=True,timeout=30)
     from PIL import Image,ImageDraw,ImageFont
-    labels=['Pet screensaver','Quota · demo values','Task reminder','Hold to dictate','Confirmed insertion','Disconnected']
-    canvas=Image.new('RGB',(3*280,2*372),(231,233,238))
+    labels=['Pet screensaver','Quota · demo values','Task reminder','Hold to dictate','Confirmed insertion','Disconnected','Presentation · demo count','Presentation · focus paused','Presentation · permission','Reminder · layout restored']
+    canvas=Image.new('RGB',(3*280,4*372),(231,233,238))
     draw=ImageDraw.Draw(canvas)
     for i,file in enumerate(sorted(host.glob('*.ppm'))):
         image=Image.open(file); image.save(file.with_suffix('.png'))

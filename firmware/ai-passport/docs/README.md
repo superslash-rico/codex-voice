@@ -1,4 +1,6 @@
-**English** · [简体中文](/docs/README.zh_CN.md)
+**English** · [简体中文](README.zh_CN.md)
+
+> This directory retains upstream engineering reference material. This checkout is the Codex companion variant, not the hardware-test baseline described below. Use the [variant guide](../README.md) and [presentation mode](development/presentation-mode.md) for the current application.
 
 <h1 align="center">FoloToy AI PASSPORT</h1>
 
@@ -15,16 +17,16 @@
 </p>
 
 <p align="center">
-  <a href="/docs/README.md"><img src="https://img.shields.io/badge/Open-firmware-14b8a6?style=flat-square" alt="Open firmware"></a>
-  <a href="/docs/README.md"><img src="https://img.shields.io/badge/Wearable-AI-2563eb?style=flat-square" alt="Wearable AI"></a>
-  <a href="/docs/development/ai-guide.md"><img src="https://img.shields.io/badge/Built-for_makers-f97316?style=flat-square" alt="Built for makers"></a>
-  <a href="/LICENSE"><img src="https://img.shields.io/badge/License-MIT-64748b?style=flat-square" alt="MIT License"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/Open-firmware-14b8a6?style=flat-square" alt="Open firmware"></a>
+  <a href="README.md"><img src="https://img.shields.io/badge/Wearable-AI-2563eb?style=flat-square" alt="Wearable AI"></a>
+  <a href="development/ai-guide.md"><img src="https://img.shields.io/badge/Built-for_makers-f97316?style=flat-square" alt="Built for makers"></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-MIT-64748b?style=flat-square" alt="MIT License"></a>
 </p>
 
 <p align="center">
   <a href="https://ai-passport.folotoy.cn/en/">Website</a> ·
   <a href="#start-development-with-one-requirement">Start building</a> ·
-  <a href="/docs/reference/README.md">Community projects</a> ·
+  <a href="reference/README.md">Community projects</a> ·
   <a href="#documentation-index">Documentation</a>
 </p>
 
@@ -48,7 +50,7 @@ it anything—from a pocket companion to something no one has imagined yet.
 | --- | --- |
 | Use the device or try an official play | [Getting started](https://ai-passport.folotoy.cn/guides/getting-started/) · [Official plays](https://ai-passport.folotoy.cn/plays/) |
 | Build a custom application with AI | [Agent instructions](../AGENTS.md) · [AI development guide](development/ai-guide.md) · [Required skills](../skills/README.md) |
-| Prepare my environment and build firmware | [Environment setup](/docs/development/engineering/environment-setup.md) · [Build and test](development/engineering/build-and-test.md) |
+| Prepare my environment and build firmware | [Environment setup](development/engineering/environment-setup.md) · [Build and test](development/engineering/build-and-test.md) |
 | Explore the board or contribute | [Hardware guide](hardware-design/AI_HARDWARE_DEVELOPMENT_GUIDE.md) · [Contributing](../.github/CONTRIBUTING.md) |
 
 > [!IMPORTANT]
@@ -220,3 +222,7 @@ provide reference material. Choose the entry that matches your task.
 [Contribute](../.github/CONTRIBUTING.md) · [Get help](../.github/SUPPORT.md) · [Code of conduct](../.github/CODE_OF_CONDUCT.md) · [Security](../.github/SECURITY.md) · [MIT License](../LICENSE)
 
 AI agents: start with [`AGENTS.md`](../AGENTS.md) and follow its task-specific routing.
+
+## Codex companion presentation controls
+
+[Presentation mode](development/presentation-mode.md) documents the development variant, protocol and manual controls.

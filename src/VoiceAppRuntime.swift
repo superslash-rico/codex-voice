@@ -80,6 +80,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.changeStartup = { [weak self] in self?.setStartup($0) }
         model.hide = { [weak self] in self?.hidePanel("manual-hide") }
         model.retry = { [weak self] in self?.manualReconnect() }
+        passport.presentationChanged = { [weak self] active, supported, status, target in
+            guard let self else { return }
+            let entering = active && !self.model.presentationActive
+            if self.model.presentationActive != active { self.model.presentationActive = active }
+            if self.model.presentationSupported != supported { self.model.presentationSupported = supported }
+            if self.model.presentationStatus != status { self.model.presentationStatus = status }
+            if self.model.presentationTarget != target { self.model.presentationTarget = target }
+            if entering { self.hidePanel("presentation-entered") }
+        }
+        model.changePresentation = { [weak self] in self?.passport.configurePresentation(enabled:$0) }
+        model.changePresentationTarget = { [weak self] in self?.passport.configurePresentation(target:$0) }
         model.setupPassport = { [weak self] in self?.passport.dictation.showSetup() }
         model.computerApprovalEnabled = UserDefaults.standard.bool(forKey: ComputerUseApprovalMonitor.preference)
         model.changeComputerApproval = { [weak self] enabled in
@@ -187,9 +198,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func startEngine() {
-        computerApprovals.reset(notify: false)
         guard !quitting else { return }
         guard process?.isRunning != true else { return }
+        passport.endPresentation()
+        computerApprovals.reset(notify: false)
         do { try AppPaths.prepare() }
         catch { model.serviceError = error.localizedDescription; return }
         runtimeURL = AppPaths.runtime
@@ -284,6 +296,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc func willSleep() {
+        passport.endPresentation()
         computerApprovals.reset()
         passport.dictation.reset()
         sleeping = true
@@ -345,7 +358,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             if healthySince == nil { healthySince = Date(); recordPanelState("service-restored") }
             if let service = value["service"] as? [String: Any], let pid = service["pid"] as? Int32,
                let group = service["processGroup"] as? Int32, pid == process?.processIdentifier, pid == group { engineGroup = group }
-            if hasNew {
+            if hasNew && !passport.presenter.enabled {
                 if !window.isVisible && !model.devicePickerOpen { model.passportSettingsOpen=false; model.settingsOpen = false; model.speechSettingsOpen = false; model.pauseDurationOpen = false; model.usageOpen = false; model.rulesOpen = false; model.quietHoursOpen = false }
                 if !window.isVisible { positionPanel() }
                 window.orderFrontRegardless()

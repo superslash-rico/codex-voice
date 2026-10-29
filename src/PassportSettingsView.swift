@@ -24,7 +24,7 @@ struct PassportAccessoryCard: View {
                         Text(model.passportConnected ? "已连接" : model.passportEnabled ? "未连接" : "可选配件")
                             .font(VoiceTheme.font(10)).foregroundColor(VoiceTheme.secondary)
                     }
-                    Text(model.passportEnabled ? "\(model.passportPetName) · \(model.passportVoiceEnabled ? "播报已开启" : "仅同步屏幕")" : "把任务提醒带在身边")
+                    Text(model.presentationActive ? "演示模式 · 提醒暂缓播报" : model.passportEnabled ? "\(model.passportPetName) · \(model.passportVoiceEnabled ? "播报已开启" : "仅同步屏幕")" : "把任务提醒带在身边")
                         .font(VoiceTheme.font(11)).foregroundColor(VoiceTheme.secondary)
                 }
                 Spacer(minLength:4)
@@ -80,6 +80,25 @@ struct PassportSettingsView: View {
                                 Image(systemName:model.passportConnected ? "checkmark.circle.fill" : "antenna.radiowaves.left.and.right")
                                     .foregroundColor(model.passportConnected ? VoiceTheme.success : VoiceTheme.secondary)
                             }
+                        }
+                    }
+                    if model.passportEnabled {
+                        Text("演示翻页").font(VoiceTheme.font(11,medium:true)).foregroundColor(VoiceTheme.secondary)
+                        group {
+                            row("演示模式",model.presentationDetail) {
+                                Toggle("演示模式",isOn:Binding(get:{model.presentationActive},set:model.changePresentation))
+                                    .toggleStyle(PersistentSwitchStyle()).labelsHidden()
+                                    .disabled(!model.connected || !model.passportConnected || !model.presentationSupported)
+                            }
+                            VoiceTheme.line.frame(height:1)
+                            row("演示软件","仅控制前台演示软件；切到其他应用时暂停。") {
+                                Picker("演示软件",selection:Binding(get:{model.presentationTarget},set:model.changePresentationTarget)) {
+                                    ForEach(PresentationTarget.allCases,id:\.rawValue) { choice in Text(choice.name).tag(choice.rawValue) }
+                                }.labelsHidden().frame(width:112)
+                            }
+                            Text("上键上一步，下键下一步；长按下键退出。演示时听写暂停、确认键不跳转任务，新的提醒保留待处理。")
+                                .font(VoiceTheme.font(10)).foregroundColor(VoiceTheme.secondary)
+                                .fixedSize(horizontal:false,vertical:true).padding(.horizontal,13).padding(.bottom,13)
                         }
                     }
                     Text("提醒声音").font(VoiceTheme.font(11,medium:true)).foregroundColor(VoiceTheme.secondary)

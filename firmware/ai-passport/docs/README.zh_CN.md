@@ -1,4 +1,6 @@
-[English](/docs/README.md) · **简体中文**
+[English](README.md) · **简体中文**
+
+> 此目录保留上游工程参考资料。当前源码是 Codex 配件变体，不是下文所述的硬件测试基线；本项目的当前功能请先看[配件固件说明](../README.zh_CN.md)和[演示模式](development/presentation-mode.zh_CN.md)。
 
 <h1 align="center">FoloToy AI PASSPORT</h1>
 
@@ -15,16 +17,16 @@
 </p>
 
 <p align="center">
-  <a href="/docs/README.zh_CN.md"><img src="https://img.shields.io/badge/Open-firmware-14b8a6?style=flat-square" alt="开放固件"></a>
-  <a href="/docs/README.zh_CN.md"><img src="https://img.shields.io/badge/Wearable-AI-2563eb?style=flat-square" alt="可穿戴 AI"></a>
-  <a href="/docs/development/ai-guide.zh_CN.md"><img src="https://img.shields.io/badge/Built-for_makers-f97316?style=flat-square" alt="为创作者而造"></a>
-  <a href="/LICENSE"><img src="https://img.shields.io/badge/License-MIT-64748b?style=flat-square" alt="MIT 许可证"></a>
+  <a href="README.zh_CN.md"><img src="https://img.shields.io/badge/Open-firmware-14b8a6?style=flat-square" alt="开放固件"></a>
+  <a href="README.zh_CN.md"><img src="https://img.shields.io/badge/Wearable-AI-2563eb?style=flat-square" alt="可穿戴 AI"></a>
+  <a href="development/ai-guide.zh_CN.md"><img src="https://img.shields.io/badge/Built-for_makers-f97316?style=flat-square" alt="为创作者而造"></a>
+  <a href="../LICENSE"><img src="https://img.shields.io/badge/License-MIT-64748b?style=flat-square" alt="MIT 许可证"></a>
 </p>
 
 <p align="center">
   <a href="https://ai-passport.folotoy.cn/">产品官网</a> ·
   <a href="#用一句需求开始开发">开始开发</a> ·
-  <a href="/docs/reference/README.zh_CN.md">社区作品</a> ·
+  <a href="reference/README.zh_CN.md">社区作品</a> ·
   <a href="#文档索引">开发文档</a>
 </p>
 
@@ -47,7 +49,7 @@
 | --- | --- |
 | 使用设备、体验官方玩法 | [快速上手](https://ai-passport.folotoy.cn/guides/getting-started/) · [官方玩法](https://ai-passport.folotoy.cn/plays/) |
 | 让 AI 开发自定义应用 | [Agent 规范](../AGENTS.zh_CN.md) · [AI 开发指南](development/ai-guide.zh_CN.md) · [必需技能](../skills/README.zh_CN.md) |
-| 准备环境、编译固件 | [环境准备](/docs/development/engineering/environment-setup.zh_CN.md) · [构建与测试](development/engineering/build-and-test.zh_CN.md) |
+| 准备环境、编译固件 | [环境准备](development/engineering/environment-setup.zh_CN.md) · [构建与测试](development/engineering/build-and-test.zh_CN.md) |
 | 了解硬件、参与贡献 | [硬件指南](hardware-design/AI_HARDWARE_DEVELOPMENT_GUIDE.zh_CN.md) · [贡献指南](../.github/CONTRIBUTING.zh_CN.md) |
 
 > [!IMPORTANT]
@@ -214,3 +216,7 @@ LICENSE                  仓库许可证
 [参与贡献](../.github/CONTRIBUTING.zh_CN.md) · [获取帮助](../.github/SUPPORT.zh_CN.md) · [行为准则](../.github/CODE_OF_CONDUCT.zh_CN.md) · [安全说明](../.github/SECURITY.zh_CN.md) · [MIT 许可证](../LICENSE)
 
 AI 助手请从 [`AGENTS.md`](../AGENTS.md) 开始，再按任务路由读取相关文档。
+
+## Codex 配件演示翻页
+
+[演示模式](development/presentation-mode.zh_CN.md)说明开发版本、协议与手动操作。

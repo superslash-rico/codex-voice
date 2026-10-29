@@ -2,9 +2,11 @@
 
 **让 Codex 继续工作，有结果时再来喊你。**
 
-一个运行在 Mac 菜单栏里的免费本地提醒工具：任务有结果、等待审批或需要回答时，用声音和卡片通知你。有 AI Passport 工牌时，还能把任务、剩余用量和宠物带在身边，按住工牌确认键向电脑听写。
+一个运行在 Mac 菜单栏里的免费本地提醒工具：任务有结果、等待审批或需要回答时，用声音和卡片通知你。有 AI Passport 工牌时，还能把任务、剩余用量和宠物带在身边，按住工牌确认键向电脑听写；讲课或开会时，还能把它切换为幻灯片翻页遥控器。
 
-[**下载 Mac 安装包 · v0.9.2-approval.1**](https://github.com/superslash-rico/codex-voice/releases/download/v0.9.2-approval.1/CodexVoice-0.9.2-approval.1-universal.dmg) · [全部下载与固件](https://github.com/superslash-rico/codex-voice/releases/tag/v0.9.2-approval.1) · [AI Passport 入门](docs/AI_PASSPORT.md) · [更新日志](CHANGELOG.md)
+[**已发布 Mac 安装包 · v0.9.2-approval.1**](https://github.com/superslash-rico/codex-voice/releases/download/v0.9.2-approval.1/CodexVoice-0.9.2-approval.1-universal.dmg) · [全部下载与固件](https://github.com/superslash-rico/codex-voice/releases/tag/v0.9.2-approval.1) · [AI Passport 入门](docs/AI_PASSPORT.md) · [更新日志](CHANGELOG.md)
+
+**最新源码：`0.10.0-presenter.1`，配套工牌固件 `0.4.0-presenter`，新增幻灯片放映遥控。** 当前已发布的 `v0.9.2-approval.1` 安装包及 `0.3.0-pets` 固件不含翻页功能；体验新功能请按[源码构建](#源码构建与固件开发)和[演示翻页指南](docs/PRESENTATION_MODE.md)部署两端。
 
 > ### ChatGPT / Codex 订阅与充值 → [slashx.shop](https://slashx.shop/)
 >
@@ -33,13 +35,45 @@
 | 自恢复与登录自启 | 后台服务失败后重试，保留必要状态，登录后启动并重连配件 |
 | 可选 AI Passport | 任务和用量同步、实体键接手、电脑与工牌独立播报 |
 | 宠物屏保 | 自动跟随 Codex 所选形象；工牌昵称独立配置，新用户默认 **Codex** |
+| 幻灯片放映遥控 | 上下键翻页，长按下键切换演示模式；演示中暂缓提醒，切换应用时暂停翻页 |
 | 工牌按住听写 | 开始单音后讲话，松开识别，完成双音表示文字已填入；不自动发送 |
 
 **没有工牌也能正常使用。** 只有一个 Mac 软件，硬件是其中的可选配件，不需要再安装“Codex 工牌联调”。
 
+## 新增：幻灯片放映遥控
+
+让 AI Passport 在讲课、会议和产品演示时也派上用场。**电脑端 `0.10.0-presenter.1` + 工牌固件 `0.4.0-presenter`** 复用已有蓝牙连接；电脑仍然只需这一个软件。
+
+<p align="center">
+  <img src="docs/images/presentation-settings.png" width="340" alt="电脑端 AI Passport 演示模式开关与演示软件选择">
+  <img src="docs/images/passport-presentation.png" width="210" alt="工牌深色演示遥控界面：当前软件、连接状态、上一页和下一页">
+  <img src="docs/images/passport-presentation-paused.png" width="210" alt="切到其他应用后暂停翻页，工牌控制区变暗并说明原因">
+</p>
+
+*电脑画面由真实 SwiftUI 组件渲染，工牌画面由真实 LVGL 固件绘制，均使用演示数据；不是硬件实拍照片。*
+
+1. 先在 **PowerPoint 或 Keynote 中开始放映**，让放映窗口保持在前台。
+2. **长按工牌下键约 1.5 秒**，或在 **AI Passport → 演示模式** 中开启。
+3. 工牌显示“已连接，可以翻页”后，**短按上键回退、短按下键前进**。有逐步动画时按演示软件自己的顺序推进。
+4. **长按下键约 1.5 秒退出**，恢复日常提醒、任务操作和按住听写。
+
+| 场景 | 行为 |
+| --- | --- |
+| 新任务到来 | 提醒仍进入待处理列表，电脑和工牌暂缓语音播报，电脑面板不自动弹出；工牌只显示数量 |
+| 工牌静置变暗 | 第一下一按同时唤醒和翻页，不额外消耗一次按键 |
+| 切到其他应用 | 暂停翻页，回到所选演示软件后继续；演示模式仍保持，提醒继续暂缓 |
+| 确认键与听写 | 演示中不自动跳转 Codex，听写暂停；退出后恢复 |
+| 断开、休眠或重启 | 清除演示模式，恢复后需手动重新开启；不补发旧按键 |
+
+默认自动识别前台演示软件，也可固定选择 PowerPoint、Keynote 或 WPS。**PowerPoint 和 Keynote 已在本机完成翻页验收；WPS 已加入识别和按键适配，但本机未安装，尚未实测。** 复杂动画、真实外接投影及来任务/断连场景仍需专项实测。当前只判断应用身份，不读取幻灯片内容、放映状态或页码；请把焦点留在实际放映窗口。
+
+翻页复用听写所需的辅助功能/事件发送权限，Mac 应用须在后台运行。使用、兼容性和故障处理见[演示翻页指南](docs/PRESENTATION_MODE.md)。
+
 ## 下载安装：先让电脑提醒跑起来
 
 ### 1. 下载并打开
+
+下列安装包是已发布的提醒版本；幻灯片翻页需要上方说明的最新源码配套版本。
 
 从 [Releases](https://github.com/superslash-rico/codex-voice/releases/tag/v0.9.2-approval.1) 下载 `CodexVoice-0.9.2-approval.1-universal.dmg`，打开后将 **Codex 语音提醒.app** 拖到 **Applications / 应用程序**，再从应用程序启动。也提供 ZIP 和 `SHA256SUMS.txt`。
 
@@ -109,7 +143,14 @@ shasum -a 256 CodexVoice-0.9.2-approval.1-universal.dmg
 
 支持的是 **FoloToy AI Passport，ESP32-C3、8 MB Flash、无 PSRAM** 的这款硬件，不能只按“也是 ESP32”刷入其他板卡。
 
-本次仅更新电脑端；配套 `0.3.0-pets` 工牌固件与上一版一致，已有工牌可继续使用。
+按用途选择匹配版本：
+
+| 版本来源 | Mac 工具 | 工牌固件 | 适用范围 |
+| --- | --- | --- | --- |
+| 当前已发布安装包 | `0.9.2-approval.1` | `0.3.0-pets` | 提醒、用量、宠物与听写，不含演示翻页 |
+| 当前仓库源码 | `0.10.0-presenter.1` | `0.4.0-presenter` | 上述能力 + 演示翻页；按源码指南构建两端 |
+
+以下下载步骤对应已发布套件；体验翻页请使用[最新源码构建路线](docs/AI_PASSPORT.md#路线-b让-codex-协助从源码构建)，旧固件不会因为更新 README 自动获得新功能。
 
 1. 下载同一 Release 中的 **`AI-Passport-Codex-0.3.0-pets-full.bin`** 和校验文件。
 2. 按 [AI Passport 手把手指南](docs/AI_PASSPORT.md) 核对设备、刷写和首次配对。
@@ -131,6 +172,7 @@ shasum -a 256 CodexVoice-0.9.2-approval.1-universal.dmg
 | 电脑没声音 | 声音输出中的电脑播报、选定设备、系统音量；指定设备断开不会自动换扬声器 |
 | 用量显示 `—` | 官方 Codex 的登录、账号模式、接口支持及最后同步时间 |
 | 找不到工牌 | 配套固件、开机/距离/蓝牙权限；附近先只开一张工牌 |
+| 工牌不能翻页 | 电脑端与工牌版本是否同时支持演示；已开启模式、输入权限有效，放映窗口在前台；固定目标是否匹配 |
 | 听写不能落字 | macOS 26+、中文模型、输入框焦点、辅助功能权限；安全输入框可能不支持 |
 | 升级后听写失效 | 临时签名可能使旧授权失效：在系统“设备控制和数据访问/辅助功能”移除旧项，重新添加当前应用并开启 |
 | 想取回未输入的文字 | AI Passport → 按住听写 → 设置 → 查看保留的听写文字；它保留在当前进程内，退出前复制 |
@@ -143,7 +185,7 @@ shasum -a 256 CodexVoice-0.9.2-approval.1-universal.dmg
 
 宠物同步读取选中形象对应的配置与本地图片缓存，不读取 Cookie 或认证文件，不保存带签名的下载地址。第三方订阅入口仅在主动点击时打开网站，网页行为遵循网站自身说明。详细数据边界见 [开发与部署说明](docs/DEVELOPMENT.md)。
 
-## 源码、构建与固件开发
+## 源码构建与固件开发
 
 ```sh
 git clone https://github.com/superslash-rico/codex-voice.git
@@ -162,9 +204,10 @@ Mac 源码构建需要 macOS、Xcode Command Line Tools（包含 macOS 26 SDK）
 | [`src/`](src/) | SwiftUI 菜单栏应用、BLE、听写、宠物同步、Python 提醒引擎 |
 | [`tests/`](tests/)、[`scripts/`](scripts/) | 主机检查、双架构构建、包验证、隔离界面渲染 |
 | [`firmware/ai-passport/`](firmware/ai-passport/) | 可独立构建的 AI Passport 固件完整源码、BSP、资源、锁定依赖、测试及 AI 开发技能 |
+| [`docs/PRESENTATION_MODE.md`](docs/PRESENTATION_MODE.md) | 幻灯片遥控、按键、演示静音、兼容性与验收 |
 | [`docs/AI_PASSPORT.md`](docs/AI_PASSPORT.md) | 预编译刷写、源码构建、Codex 协助配置、配对、按键、排错 |
 | [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) | 部署架构、权限、打包、数据与维护 |
-| [`docs/VALIDATION.md`](docs/VALIDATION.md) | 本次发布的检查和尚未验证范围 |
+| [`docs/VALIDATION.md`](docs/VALIDATION.md) | 源码版本的检查、既有发布证据和尚未验证范围 |
 
 AI Passport 固件要求 **ESP-IDF 5.5.3**。在其目录阅读 `AGENTS.md` 和中英文 README，再运行 `./tools/validate.sh`；该流程构建、测试并验证合并镜像，**不会自动刷机**。无需提交系统环境、私有聊天、个人配置或构建缓存。所有发布文件通过 Releases 提供，二进制不进入 Git 源码历史。
 

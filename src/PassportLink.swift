@@ -1,6 +1,7 @@
 import Foundation
 import CoreBluetooth
 import AppKit
+import ApplicationServices
 
 final class PassportLink: NSObject, CBCentralManagerDelegate, CBPeripheralDelegate {
     static let service = CBUUID(string: "EA37F001-4E2B-47EF-9501-6D79B932A001")
@@ -9,6 +10,52 @@ final class PassportLink: NSObject, CBCentralManagerDelegate, CBPeripheralDelega
     static let voiceID = CBUUID(string: "EA37F004-4E2B-47EF-9501-6D79B932A001")
     static let assetID = CBUUID(string: "EA37F005-4E2B-47EF-9501-6D79B932A001")
     let dictation = PassportDictation()
+    let presenter = PassportPresenter()
+    var presentationChanged: (Bool, Bool, Int, String) -> Void = { _,_,_,_ in }
+    private var lastPresentationLease = Date.distantPast
+    private var presentationDiagnosticMarker = ""
+    private var presentationPosted = 0
+    private var presentationLastRequest: [String:Any] = [:]
+
+    func presentationContext() -> PresentationContext {
+        let fresh = Date().timeIntervalSince1970 - (snapshot["at"] as? Double ?? 0) < 8
+        return PresentationContext(connected: enabled && ready && fresh,
+            quietAcknowledged: (snapshot["presentation"] as? [String:Any])?["active"] as? Bool == true,
+            permission: AXIsProcessTrusted() && CGPreflightPostEventAccess(),
+            frontBundle: NSWorkspace.shared.frontmostApplication?.bundleIdentifier, inputIdle:dictation.activeID == nil)
+    }
+    func refreshPresentation() {
+        let context = presentationContext()
+        if presenter.enabled && !context.connected { presenter.setEnabled(false, context: context) }
+        if presenter.enabled && Date().timeIntervalSince(lastPresentationLease) >= 2 {
+            sendAction(["action":"presentation_mode", "active":true]); lastPresentationLease = Date()
+        }
+        presentationChanged(presenter.enabled, presenter.supported, presenter.status(context), presenter.target.rawValue)
+        var report: [String:Any] = ["active":presenter.enabled, "supported":presenter.supported,
+            "status":presenter.status(context), "target":presenter.target.rawValue,
+            "keyPairsPosted":presentationPosted, "lastRequest":presentationLastRequest]
+        if let marker = try? JSONSerialization.data(withJSONObject:report, options:.sortedKeys).base64EncodedString(), marker != presentationDiagnosticMarker {
+            presentationDiagnosticMarker = marker
+            report["at"] = Date().timeIntervalSince1970
+            if let data = try? JSONSerialization.data(withJSONObject:report, options:.sortedKeys) {
+                let path = AppPaths.runtime.appendingPathComponent("passport-presentation.json")
+                try? data.write(to:path, options:.atomic)
+                try? FileManager.default.setAttributes([.posixPermissions:0o600], ofItemAtPath:path.path)
+            }
+        }
+    }
+    func configurePresentation(enabled value: Bool? = nil, target: String? = nil) {
+        if let target, let choice = PresentationTarget(rawValue: target) {
+            presenter.target = choice
+            UserDefaults.standard.set(target, forKey:"PassportPresentationTarget")
+        }
+        if let value { presenter.setEnabled(value, context:presentationContext()) }
+        refreshPresentation(); sendState()
+    }
+    func endPresentation() {
+        presenter.setEnabled(false, context:presentationContext())
+        refreshPresentation(); sendState()
+    }
     var voiceSupported = false
     var voiceSubscribed = false
     let epoch = PassportProtocol.makeEpoch()
@@ -53,6 +100,13 @@ final class PassportLink: NSObject, CBCentralManagerDelegate, CBPeripheralDelega
     init(sendAction: @escaping ([String: Any]) -> Void) {
         self.sendAction = sendAction
         super.init()
+        presenter.target = PresentationTarget(rawValue:UserDefaults.standard.string(forKey:"PassportPresentationTarget") ?? "") ?? .automatic
+        presenter.changed = { [weak self] in
+            guard let self else { return }
+            self.sendAction(["action":"presentation_mode", "active":self.presenter.enabled])
+            self.lastPresentationLease = Date()
+            self.refreshPresentation()
+        }
         dictation.send = { [weak self] object in
             guard let self else { return }
             var frame = object; frame["epoch"] = self.epoch; self.send(frame)
@@ -81,11 +135,14 @@ final class PassportLink: NSObject, CBCentralManagerDelegate, CBPeripheralDelega
             }
         }
         guard enabled else { return }
+        refreshPresentation()
         updatePet()
         reconcileActions()
         if ready && Date().timeIntervalSince(lastState) >= 1 { sendState() }
     }
     func stop() {
+        presenter.reset()
+        refreshPresentation()
         dictation.reset()
         central?.stopScan()
         scanning = false
@@ -95,6 +152,7 @@ final class PassportLink: NSObject, CBCentralManagerDelegate, CBPeripheralDelega
         linkStatus()
     }
     func tick() {
+        refreshPresentation()
         updatePet();petSync.tick()
         guard enabled, let central else { return }
         if Date().timeIntervalSince1970 - (snapshot["at"] as? Double ?? 0) > 8 {
@@ -128,10 +186,10 @@ final class PassportLink: NSObject, CBCentralManagerDelegate, CBPeripheralDelega
     func updatePet() {
         let urgent=(snapshot["alerts"] as? [[String:Any]] ?? []).contains { ["approval","question","blocked"].contains($0["kind"] as? String ?? "") }
         let fresh=Date().timeIntervalSince1970-(snapshot["at"] as? Double ?? 0)<8
-        petSync.unsupportedReason = petSupported ? "蓝牙图片通道尚未发现，正在等待连接刷新" : firmware.hasPrefix("0.3.") ? "工牌图片存储未就绪，正在检查" : "更新工牌后即可自动同步宠物形象"
+        petSync.unsupportedReason = petSupported ? "蓝牙图片通道尚未发现，正在等待连接刷新" : (firmware.hasPrefix("0.3.") || firmware.hasPrefix("0.4.")) ? "工牌图片存储未就绪，正在检查" : "更新工牌后即可自动同步宠物形象"
         petSync.maximumPacket=min(244,peer?.maximumWriteValueLength(for:.withoutResponse) ?? 244)
         petSync.update(enabled:enabled,connected:ready && fresh,supported:petSupported && assetCharacteristic != nil,
-                       blocked:dictation.activeID != nil || snapshot["speakingId"] is String || urgent,epoch:epoch)
+                       blocked:presenter.enabled || dictation.activeID != nil || snapshot["speakingId"] is String || urgent,epoch:epoch)
     }
     func scan() {
         guard enabled, let central, central.state == .poweredOn else { return }
@@ -174,6 +232,7 @@ final class PassportLink: NSObject, CBCentralManagerDelegate, CBPeripheralDelega
     }
     func disconnected(_ peripheral: CBPeripheral) {
         guard peer?.identifier == peripheral.identifier else { return }
+        presenter.reset(); refreshPresentation()
         dictation.reset(); voiceSupported = false; voiceSubscribed = false
         ready = false; audioReady = false; peer = nil; rx = nil; writing = false;assetCharacteristic=nil;petSupported=false
         fragments = []; receiveBuffer = Data(); pending = [:]
@@ -205,7 +264,9 @@ final class PassportLink: NSObject, CBCentralManagerDelegate, CBPeripheralDelega
     }
     func sendState() {
         guard ready else { return }
-        send(PassportProtocol.state(snapshot, epoch: epoch))
+        var state = PassportProtocol.state(snapshot, epoch: epoch)
+        state.merge(presenter.state(presentationContext(), now:Date().timeIntervalSince1970)) { _,new in new }
+        send(state)
         lastState = Date()
     }
     func send(_ object: [String: Any]) {
@@ -256,12 +317,26 @@ final class PassportLink: NSObject, CBCentralManagerDelegate, CBPeripheralDelega
             voiceSupported = object["voice"] as? Bool == true
             volume = object["volume"] as? Int ?? 60
             firmware = object["firmware"] as? String ?? ""
+            presenter.hello(supported:object["presenter"] as? Bool == true, session:object["presenterSession"] as? String ?? "")
+            refreshPresentation()
             petNameSupported = object["petNameSupported"] as? Bool ?? false
             petSupported = object["petSync"] as? Bool == true && object["petFormat"] as? Int == 1
             petSync.hello(sha:object["petSha"] as? String ?? "")
             if let peer { UserDefaults.standard.set(peer.identifier.uuidString, forKey: "PassportPeripheral") }
             linkStatus(audioReady ? "" : "工牌音频未就绪")
             sendState()
+        case "presenter":
+            var accepted = false
+            if dictation.activeID == nil {
+                accepted = presenter.receive(object, epoch:epoch, context:presentationContext(), now:Date().timeIntervalSince1970) {
+                    PresentationKeyboard.send(next:$0, target:$1)
+                }
+            }
+            let op = object["op"] as? String ?? ""
+            if accepted && ["previous","next"].contains(op) { presentationPosted += 1 }
+            presentationLastRequest = ["op":["previous","next","enable","disable"].contains(op) ? op:"invalid",
+                "accepted":accepted, "at":Date().timeIntervalSince1970]
+            refreshPresentation(); sendState()
         case "pet_ack":
             updatePet();petSync.receive(object)
         case "cue":
@@ -276,7 +351,7 @@ final class PassportLink: NSObject, CBCentralManagerDelegate, CBPeripheralDelega
                 try? FileManager.default.setAttributes([.posixPermissions:0o600],ofItemAtPath:url.path)
             }
         case "voice":
-            guard ready, voiceSupported, voiceSubscribed, object["epoch"] as? String == epoch else { return }
+            guard ready, !presenter.enabled, voiceSupported, voiceSubscribed, object["epoch"] as? String == epoch else { return }
             dictation.receive(object)
         case "pong": break
         case "audio":
@@ -284,7 +359,7 @@ final class PassportLink: NSObject, CBCentralManagerDelegate, CBPeripheralDelega
             feedback(["kind": "audio", "id": object["id"] as? String ?? "",
                       "phase": object["phase"] as? String ?? "failed"])
         case "action":
-            guard ready, object["epoch"] as? String == epoch,
+            guard ready, !presenter.enabled, object["epoch"] as? String == epoch,
                   Date().timeIntervalSince1970 - (snapshot["at"] as? Double ?? 0) < 8,
                   let id = object["id"] as? String, id.count <= 40,
                   let action = object["action"] as? String else { return }
@@ -337,7 +412,7 @@ final class PassportLink: NSObject, CBCentralManagerDelegate, CBPeripheralDelega
         if command["op"] as? String == "stop" {
             send(["v": 1, "type": "stop", "epoch": epoch, "id": id]); return
         }
-        guard ready, audioReady, dictation.activeID == nil, command["op"] as? String == "play" else {
+        guard ready, !presenter.enabled, audioReady, dictation.activeID == nil, command["op"] as? String == "play" else {
             feedback(["kind": "audio", "id": id, "phase": "failed"]); return
         }
         send(["v": 1, "type": "play", "epoch": epoch, "id": id,

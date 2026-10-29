@@ -58,6 +58,15 @@ def main():
             assert not initial["audio"]["computerEnabled"]
             assert initial["audio"]["selectedUID"] != "codex-passport:ble"
             send({"action":"passport_feedback", "event":{"kind":"link", "connected":True}})
+            send({"action":"presentation_mode", "active":True})
+            until(lambda v: v.get("presentation", {}).get("active") is True)
+            send({"action":"test", "target":"passport"})
+            held = until(lambda v: bool(v.get("alerts")))
+            assert held["presentation"]["active"] and held["alerts"][0]["count"] == 0
+            send({"action":"clear_tests"})
+            until(lambda v: "alerts" in v and not v["alerts"])
+            send({"action":"presentation_mode", "active":False})
+            until(lambda v: v.get("presentation", {}).get("active") is False)
             send({"action":"test", "target":"passport"})
             command = until(lambda v: v.get("passportCommand", {}).get("op") == "play")["passportCommand"]
             assert command["phrase"] == "test"
@@ -80,7 +89,7 @@ def main():
             assert quiet["audio"]["silent"]
             saved = json.loads((state/"settings.json").read_text())
             assert saved["passport"] == {"enabled":True,"voiceEnabled":False,"petName":"Rico"}
-            print(json.dumps({"packagedEngine":True, "simulatedStartAcknowledgement":True,
+            print(json.dumps({"packagedEngine":True, "presentationSilenceHandshake":True, "simulatedStartAcknowledgement":True,
                               "acknowledgementStopsPlayback":True, "disconnectPreservesCounter":True,
                               "legacyMigration":True,"independentAccessorySettingsPersisted":True,
                               "physicalBLE":"NOT RUN"}))

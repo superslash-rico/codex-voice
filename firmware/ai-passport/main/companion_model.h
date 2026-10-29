@@ -23,6 +23,9 @@ typedef struct {
     char epoch[17];
     char pet_name[CP_PET_NAME_MAX];
     bool online, enabled, muted, quiet, monitor;
+    bool presenter_supported, presenting, presenter_ready;
+    int presenter_status, presenter_target;
+    char presenter_lease[17];
     int usage, running, total, count, selected;
     cp_quota_t quotas[2];
     int quota_count, usage_age;

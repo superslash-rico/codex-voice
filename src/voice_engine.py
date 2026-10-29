@@ -35,7 +35,7 @@ USAGE_LOW_ID = "usage-low:"
 USAGE_LOW_PREVIEW_ID = USAGE_LOW_ID + "preview"
 DEFAULT_PAUSE_MINUTES = 15
 KINDS = {"approval": "等待审批", "question": "等待回答", "result": "已有结果", "blocked": "需要关注", "test": "播报测试"}
-VERSION = "0.9.2-approval.1"
+VERSION = "0.10.0-presenter.1"
 
 
 def clean_label(value, fallback="当前任务"):
@@ -337,12 +337,15 @@ class Engine:
         self.verifying_threads = set()
         self.recovery = {"state": "ready", "restored": 0, "detail": "恢复记录已就绪"}
         self.sleeping = False
+        self.presentation_until = 0.0
         self.activity = {}
 
     def rule(self, alert):
         return self.rules.get(alert["kind"], KindRule())
 
     def play(self, key, text, kind):
+        if self.presentation_active():
+            return False
         target = self.alerts.get(key,{}).get("outputTarget")
         accessory = getattr(self.speaker,"passport_settings",None)
         if ((accessory and accessory.enabled and accessory.voiceEnabled and target in (None,"passport"))
@@ -354,8 +357,11 @@ class Engine:
         method = getattr(self.speaker,"speak_kind",None)
         return method(key,text,kind) if method else self.speaker.speak(key,text)
 
+    def presentation_active(self):
+        return self.now() < self.presentation_until
+
     def quiet_blocks(self, kind=None):
-        return self.quiet.active(self.now()) and not (kind == "approval" and self.quiet.allow_approval)
+        return self.presentation_active() or (self.quiet.active(self.now()) and not (kind == "approval" and self.quiet.allow_approval))
 
     def interrupt_current(self):
         key = self.speaker.alert_id if self.speaker.busy() else None
@@ -551,6 +557,16 @@ class Engine:
 
     def event(self, event):
         action = event.get("action", "add")
+        if action == "presentation_mode":
+            if type(event.get("active")) is not bool:
+                return False
+            if event["active"] and not self.presentation_active():
+                self.interrupt_current()
+                self.speaker.stop()
+            # A short, renewable lease is runtime-only. It changes no user mute,
+            # quiet-hours, output or startup setting, and is never checkpointed.
+            self.presentation_until = self.now() + 8 if event["active"] else 0.0
+            return True
         if action == "desktop_approval":
             key = event.get("id", "")
             if not isinstance(key, str) or not re.fullmatch(r"desktop-approval:[0-9a-f-]{36}", key) or type(event.get("active")) is not bool:
@@ -691,7 +707,7 @@ class Engine:
         elif action == "preview":
             self.preview_error = ""
             if self.sleeping or self.quiet_blocks():
-                self.preview_error = "当前休眠或定时免打扰生效，暂不试听。"
+                self.preview_error = "演示、休眠或定时免打扰生效，暂不试听。"
             elif not self.enabled or self.now() < self.muted_until:
                 self.preview_error = "请先开启并恢复语音提醒，再试听。"
             else:
@@ -719,7 +735,7 @@ class Engine:
         elif action == "preview_usage_reset":
             self.usage_reset_error = ""
             if self.sleeping or self.quiet_blocks():
-                self.usage_reset_error = "当前休眠或定时免打扰生效，暂不试听。"
+                self.usage_reset_error = "演示、休眠或定时免打扰生效，暂不试听。"
             elif not self.enabled or self.now() < self.muted_until:
                 self.usage_reset_error = "请先开启并恢复语音提醒，再试听。"
             elif self.speaker.busy():
@@ -736,7 +752,7 @@ class Engine:
         elif action == "preview_usage_low":
             self.usage_low_error = ""
             if self.sleeping or self.quiet_blocks():
-                self.usage_low_error = "当前休眠或定时免打扰生效，暂不试听。"
+                self.usage_low_error = "演示、休眠或定时免打扰生效，暂不试听。"
             elif not self.enabled or self.now() < self.muted_until:
                 self.usage_low_error = "请先开启并恢复语音提醒，再试听。"
             elif self.speaker.busy():
@@ -762,7 +778,7 @@ class Engine:
             expired = self.usage_reset_queue.popleft()
             if self.last_usage_reset.get("id") == expired["id"]:
                 self.last_usage_reset["state"] = "expired"
-        if self.sleeping or not self.enabled or now < self.muted_until or self.speaker.busy() or now - self.last_spoken < 1.5:
+        if self.presentation_active() or self.sleeping or not self.enabled or now < self.muted_until or self.speaker.busy() or now - self.last_spoken < 1.5:
             return
         due = [a for a in self.alerts.values() if a["nextAt"] <= now and not self.quiet_blocks(a["kind"]) and not a.get("recoveryPending")
                and (a.get("manualReplay") or (self.rule(a).enabled
@@ -814,7 +830,7 @@ class Engine:
         low_announcement = {"enabled": self.usage_low_enabled, "threshold": self.usage_low_threshold, "previewing": speaking == USAGE_LOW_PREVIEW_ID, "error": self.usage_low_error, "lastWarning": self.last_usage_low}
         alerts = [dict(a, voiceEnabled=self.rule(a).enabled, playLimit=self.rule(a).max_plays,
                        limitReached=bool(self.rule(a).max_plays and a["count"] >= self.rule(a).max_plays)) for a in self.alerts.values()]
-        return {"version": VERSION, "at": self.now(), "enabled": self.enabled, "mutedUntil": self.muted_until, "pause": {"minutes": self.pause_minutes, "error": self.pause_error}, "speakingId": speaking, "audio": audio, "passport": dict(self.speaker.passport_status(),settingsError=self.passport_error) if hasattr(self.speaker,"passport_status") else {}, "outputError":self.output_error, "speech": speech, "usageAnnouncement": announcement, "usageLowAnnouncement": low_announcement, "reminderRules": {k:v.to_dict() for k,v in self.rules.items()}, "rulesError": self.rules_error, "quietHours": dict(self.quiet.to_dict(), active=self.quiet.active(self.now()), error=self.quiet_error), "recovery": self.recovery, "alerts": sorted(alerts, key=lambda a: a["createdAt"], reverse=True), "monitor": self.monitor, "activeTasks": list(self.activity.values())[:12], "history": list(self.history)}
+        return {"version": VERSION, "at": self.now(), "enabled": self.enabled, "mutedUntil": self.muted_until, "presentation": {"active":self.presentation_active()}, "pause": {"minutes": self.pause_minutes, "error": self.pause_error}, "speakingId": speaking, "audio": audio, "passport": dict(self.speaker.passport_status(),settingsError=self.passport_error) if hasattr(self.speaker,"passport_status") else {}, "outputError":self.output_error, "speech": speech, "usageAnnouncement": announcement, "usageLowAnnouncement": low_announcement, "reminderRules": {k:v.to_dict() for k,v in self.rules.items()}, "rulesError": self.rules_error, "quietHours": dict(self.quiet.to_dict(), active=self.quiet.active(self.now()), error=self.quiet_error), "recovery": self.recovery, "alerts": sorted(alerts, key=lambda a: a["createdAt"], reverse=True), "monitor": self.monitor, "activeTasks": list(self.activity.values())[:12], "history": list(self.history)}
 
 
 class RolloutAdapter:
@@ -1130,6 +1146,7 @@ def main():
             return
         if event.get("action") == "prepare_sleep":
             engine.sleeping = True
+            engine.presentation_until = 0.0
             engine.interrupt_current(); engine.speaker.stop()
             store.save(engine, adapter, force=True)
             return

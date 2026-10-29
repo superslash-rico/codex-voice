@@ -9,16 +9,16 @@ enum StartupError:Error {case failed(String)}
         let arguments=CommandLine.arguments
         let folder=URL(fileURLWithPath:arguments[arguments.firstIndex(of:"--output")!+1],isDirectory:true)
         try FileManager.default.createDirectory(at:folder,withIntermediateDirectories:true)
-        let variants=["ready","tasks","many","low","offline","dark","usage","passport","settings","fresh"]
+        let variants=["ready","tasks","many","low","offline","dark","usage","passport","settings","fresh","presenter","presenter-paused"]
         for variant in variants {
             let model=VoicePanelModel(),now=Date().timeIntervalSince1970
-            model.connectionConfigured=true;model.startupEnabled=true
+            model.connectionConfigured=true;model.startupEnabled=true;model.presentationSupported=true
             model.maximumListHeight=260;model.maximumSettingsHeight=480
             model.snapshot=[
                 "at":now,"enabled":true,"alerts":[],"monitor":["state":"connected"],
                 "audio":["device":"MacBook Pro 扬声器","available":true,"ready":true,"followSystem":true,"computerEnabled":true,"computerAvailable":true,"computerReady":true,"defaultName":"MacBook Pro 扬声器"],
                 "speech":["voice":"Tingting","ready":true,"intervals":[30,60,180],"voices":[["id":"Tingting","name":"Tingting · 普通话","language":"zh_CN"]]],
-                "passport":["enabled":true,"connected":true,"voiceEnabled":true,"petName":"Codex","firmware":"0.3.0-pets","petNameSupported":true,"petSync":["state":"synced","detail":"已同步 · 自动跟随 Codex","sha":"preview"]],
+                "passport":["enabled":true,"connected":true,"voiceEnabled":true,"petName":"Codex","firmware":"0.4.0-presenter","petNameSupported":true,"petSync":["state":"synced","detail":"已同步 · 自动跟随 Codex","sha":"preview"]],
                 "usage":["state":"ready","remainingPercent":93,"fetchedAt":now,"lastAttemptAt":now-20,"planType":"pro","windows":[["id":"primary","remainingPercent":93,"windowMinutes":300,"resetsAt":now+12600],["id":"secondary","remainingPercent":98,"windowMinutes":10080,"resetsAt":now+360000]]]
             ]
             if variant=="tasks" || variant=="many" {
@@ -30,10 +30,14 @@ enum StartupError:Error {case failed(String)}
             }
             if variant=="low" {var usage=model.snapshot["usage"] as! [String:Any];usage["remainingPercent"]=12;usage["windows"]=[["id":"primary","remainingPercent":12,"windowMinutes":300,"resetsAt":now+12600],["id":"secondary","remainingPercent":62,"windowMinutes":10080,"resetsAt":now+360000]];model.snapshot["usage"]=usage}
             if variant=="offline" {model.snapshot["usage"]=["state":"stale","remainingPercent":93,"fetchedAt":now-240,"message":"用量数据已过期，等待重新同步。"];var badge=model.snapshot["passport"] as! [String:Any];badge["connected"]=false;model.snapshot["passport"]=badge}
-            if variant=="fresh" {model.passportSettingsOpen=true;model.snapshot["passport"]=["enabled":true,"connected":false,"voiceEnabled":false,"petName":"Codex","petNameSupported":true]}
+            if variant=="fresh" {model.presentationSupported=false;model.passportSettingsOpen=true;model.snapshot["passport"]=["enabled":true,"connected":false,"voiceEnabled":false,"petName":"Codex","petNameSupported":true]}
             if variant=="usage" {model.usageOpen=true}
             if variant=="passport" {model.passportSettingsOpen=true}
             if variant=="settings" {model.settingsOpen=true}
+            if variant.hasPrefix("presenter") {
+                model.passportSettingsOpen=true;model.presentationSupported=true;model.presentationActive=true
+                model.presentationStatus=variant=="presenter" ? 0:1
+            }
             let dark=variant=="dark"
             app.appearance=NSAppearance(named:dark ? .darkAqua:.aqua)
             let base=AnyView(VoicePanelView(model:model))

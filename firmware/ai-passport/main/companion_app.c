@@ -1,4 +1,5 @@
 #include "companion_model.h"
+#include "companion_presenter.h"
 #include "companion_pet.h"
 #include "companion_ble.h"
 #include "companion_cue.h"
@@ -37,6 +38,11 @@ static cp_gesture_t s_gestures[3];
 static cp_voice_view_t s_voice;
 static int s_quota;
 static bool s_asleep=true;
+static atomic_bool s_down_down;
+static cp_presenter_hold_t s_presenter_hold;
+static bool s_page_press[3];
+static char s_presenter_session[17];
+static uint32_t s_presenter_sequence;
 static atomic_bool s_ok_down, s_record_stop, s_record_go;
 typedef struct { char id[17]; cp_voice_phase_t phase; int level; } voice_event_t;
 static int s_battery = -1;
@@ -265,7 +271,7 @@ static void audio_task(void *unused)
 static void hello(void)
 {
     char frame[384],sha[65];cp_pet_current_hash(sha);
-    snprintf(frame, sizeof(frame), "{\"v\":1,\"type\":\"hello\",\"audio\":%s,\"voice\":true,\"volume\":60,\"firmware\":\"0.3.0-pets\",\"petNameSupported\":true,\"petSync\":%s,\"petFormat\":1,\"petSha\":\"%s\"}", s_audio_ok ? "true" : "false",cp_pet_supported()?"true":"false",sha);
+    snprintf(frame, sizeof(frame), "{\"v\":1,\"type\":\"hello\",\"audio\":%s,\"voice\":true,\"volume\":60,\"firmware\":\"0.4.0-presenter\",\"presenter\":true,\"presenterSession\":\"%s\",\"petNameSupported\":true,\"petSync\":%s,\"petFormat\":1,\"petSha\":\"%s\"}", s_audio_ok ? "true" : "false",s_presenter_session,cp_pet_supported()?"true":"false",sha);
     (void)cp_ble_send(frame);
 }
 static bool request_id(const char *id)
@@ -286,6 +292,12 @@ static void state_frame(cJSON *json)
     snprintf(incoming.pet_name,sizeof(incoming.pet_name),"%s",pet_name ? pet_name : s_pet_name);
     incoming.enabled = boolean(json, "enabled"); incoming.muted = boolean(json, "muted");
     incoming.quiet = boolean(json, "quiet"); incoming.monitor = boolean(json, "monitor");
+    incoming.presenter_supported = boolean(json,"presenterSupported");
+    incoming.presenting = boolean(json,"presenter"); incoming.presenter_ready = boolean(json,"presenterReady");
+    incoming.presenter_status = number(json,"presenterStatus",3); incoming.presenter_target = number(json,"presenterTarget",0);
+    const char *lease = str(json,"presenterLease");
+    if (incoming.presenter_supported && !cp_token_valid(lease)) return;
+    if (lease) snprintf(incoming.presenter_lease,sizeof(incoming.presenter_lease),"%s",lease);
     incoming.total = number(json, "total", -1); incoming.running = number(json, "running", -1);
     incoming.usage = number(json, "usage", -2);
     incoming.usage_age = number(json,"usageAge",0);
@@ -311,6 +323,7 @@ static void state_frame(cJSON *json)
         incoming.alerts[i].kind = (cp_phrase_t)kind;
         incoming.alerts[i].snoozed = boolean(a, "snoozed"); incoming.alerts[i].verify = boolean(a, "verify");
     }
+    bool was_presenting=s_model.presenting;
     bool first_quota=!s_model.quota_count && incoming.quota_count;
     bool new_item = !s_model.online || incoming.count != s_model.count ||
                     strcmp(s_model.epoch, incoming.epoch);
@@ -323,6 +336,10 @@ static void state_frame(cJSON *json)
         if (!atomic_exchange(&s_audio_session,true)) {
             audio_job_t warm={.phrase=-4}; (void)xQueueSend(s_audio,&warm,0);
         }
+        if (was_presenting!=s_model.presenting) {
+            s_interaction=now_ms(); s_asleep=false; s_menu=0;
+            toast(s_model.presenting ? "演示模式已开启" : "已退出演示模式");
+        }
         if (new_item) {
             s_interaction = now_ms();
             if (incoming.count) s_asleep=false;
@@ -332,7 +349,7 @@ static void state_frame(cJSON *json)
             for (int i=1;i<s_model.quota_count;++i)
                 if (s_model.quotas[i].remaining<s_model.quotas[s_quota].remaining) s_quota=i;
         }
-        if (!s_model.enabled || s_model.muted) atomic_fetch_add(&s_cancel, 1);
+        if (!s_model.enabled || s_model.muted || s_model.presenting) atomic_fetch_add(&s_cancel, 1);
         (void)cp_ble_send("{\"v\":1,\"type\":\"pong\"}");
     }
 }
@@ -419,9 +436,29 @@ static void action(const char *name, const char *alert_id)
         s_action_until = now_ms() + 7000; toast("正在同步到电脑");
     } else toast("发送失败，请重试");
 }
+static void presenter_action(const char *op)
+{
+    uint64_t now=now_ms();
+    if (!s_model.online || !cp_ble_ready()) { toast("请先连接电脑"); return; }
+    if (!s_model.presenter_supported) { toast("请更新电脑端软件"); return; }
+    if (now<s_model.updated_ms || now-s_model.updated_ms>2500 || s_presenter_sequence>=INT32_MAX) {
+        toast("等待电脑就绪，请重试"); return;
+    }
+    char frame[256];
+    snprintf(frame,sizeof(frame),"{\"v\":1,\"type\":\"presenter\",\"epoch\":\"%s\",\"session\":\"%s\",\"lease\":\"%s\",\"seq\":%lu,\"op\":\"%s\"}",
+             s_model.epoch,s_presenter_session,s_model.presenter_lease,(unsigned long)++s_presenter_sequence,op);
+    if (!cp_ble_send(frame)) toast("发送失败，请重试");
+}
+static void presenter_page(bsp_btn_t button)
+{
+    if (s_model.presenter_ready) presenter_action(button==BSP_BTN_UP ? "previous" : "next");
+    else toast(s_model.presenter_status==2 ? "请在电脑开启输入权限" : "请返回演示软件放映");
+}
 static void on_key(bsp_btn_t button, bsp_btn_ev_t event, void *unused)
 {
     (void)unused;
+    if (button==BSP_BTN_DOWN && event==BSP_BTN_PRESS) atomic_store(&s_down_down,true);
+    if (button==BSP_BTN_DOWN && event==BSP_BTN_RELEASE) atomic_store(&s_down_down,false);
     if (button==BSP_BTN_OK && event==BSP_BTN_PRESS) atomic_store(&s_ok_down,true);
     if (button==BSP_BTN_OK && event==BSP_BTN_RELEASE) atomic_store(&s_ok_down,false);
     cp_key_t key = {.button = button, .event = event};
@@ -429,6 +466,7 @@ static void on_key(bsp_btn_t button, bsp_btn_ev_t event, void *unused)
 }
 static void begin_voice(void)
 {
+    if (s_model.presenting) { toast("请先退出演示模式"); return; }
     if (!s_model.online || !cp_ble_voice_ready() || !s_audio_ok) { toast("请先连接电脑"); return; }
     if (s_voice.phase==CP_VOICE_PREPARING || s_voice.phase==CP_VOICE_RECORDING || s_voice.phase==CP_VOICE_PROCESSING) return;
     memset(&s_voice,0,sizeof(s_voice));
@@ -444,7 +482,10 @@ static void handle_key(cp_key_t key)
     uint64_t now=now_ms();
     cp_gesture_t *g=&s_gestures[key.button];
     if (key.event==BSP_BTN_PRESS) {
-        cp_gesture_press(g,s_asleep,s_model.count ? s_model.alerts[s_model.selected].id : NULL);
+        if (key.button==BSP_BTN_DOWN) cp_presenter_press(&s_presenter_hold,now);
+        bool page_key=cp_presenter_page_key(s_model.presenting,s_menu,s_voice.phase==CP_VOICE_IDLE,key.button);
+        s_page_press[key.button]=page_key;
+        cp_gesture_press(g,s_asleep && !page_key,s_model.count ? s_model.alerts[s_model.selected].id : NULL);
         s_interaction=now; s_asleep=false; return;
     }
     if (key.event==BSP_BTN_LONG) {
@@ -457,13 +498,23 @@ static void handle_key(cp_key_t key)
     }
     if (key.event==BSP_BTN_RELEASE) {
         if (key.button==BSP_BTN_OK && g->held) atomic_store(&s_record_stop,true);
+        /* SINGLE_CLICK waits for the double-click window and is absent for a
+         * double click. Release emits one page for each physical short press. */
+        if (s_page_press[key.button] && !g->held &&
+            cp_presenter_page_key(s_model.presenting,s_menu,s_voice.phase==CP_VOICE_IDLE,key.button)) presenter_page(key.button);
         return;
     }
+    if (s_page_press[key.button] && (key.event==BSP_BTN_CLICK || key.event==BSP_BTN_DOUBLE)) return;
     if (key.event!=BSP_BTN_CLICK || !cp_gesture_click(g)) return;
     if (s_voice.phase!=CP_VOICE_IDLE) {
         if (s_voice.phase>=CP_VOICE_DONE) s_voice.phase=CP_VOICE_IDLE;
         return;
     }
+    if (cp_presenter_page_key(s_model.presenting,s_menu,true,key.button)) {
+        /* A mode changed after PRESS; never turn that release into a page. */
+        return;
+    }
+    if (s_model.presenting && key.button==BSP_BTN_OK && !s_menu) { toast("演示中，提醒稍后处理"); return; }
     if (s_menu==2) {
         if (key.button==BSP_BTN_OK) {
             atomic_fetch_add(&s_cancel,1); cp_ble_unpair(); offline_model(); toast("已取消配对");
@@ -475,6 +526,7 @@ static void handle_key(cp_key_t key)
         else if (key.button==BSP_BTN_DOWN) s_menu_selection=(s_menu_selection+1)%5;
         else {
             int choice=s_menu_selection; s_menu=choice==4 ? 2 : 0;
+            if (s_model.presenting && choice>0 && choice<4) { toast("请先退出演示模式"); return; }
             if (choice==1) action("snooze",NULL);
             if (choice==2) action("replay",NULL);
             if (choice==3) action("pause",NULL);
@@ -487,6 +539,7 @@ static void handle_key(cp_key_t key)
 void app_main(void)
 {
     cp_model_init(&s_model);
+    snprintf(s_presenter_session,sizeof(s_presenter_session),"%08x%08x",(unsigned)esp_random(),(unsigned)esp_random());
     s_frames = xQueueCreate(2, CP_FRAME_MAX); s_keys = xQueueCreate(12, sizeof(cp_key_t));
     s_audio = xQueueCreate(2, sizeof(audio_job_t));
     s_voice_events=xQueueCreate(8,sizeof(voice_event_t));
@@ -509,7 +562,7 @@ void app_main(void)
     esp_err_t keys = bsp_button_init(on_key, NULL);
     esp_err_t battery = bsp_battery_init_existing();
     esp_err_t ble = cp_ble_init(s_frames);
-    ESP_LOGI(TAG, "Codex Pocket 0.3.0; audio=%s keys=%s battery=%s BLE=%s; heap=%u",
+    ESP_LOGI(TAG, "Codex Pocket 0.4.0; audio=%s keys=%s battery=%s BLE=%s; heap=%u",
         s_audio_ok ? "ready" : "unavailable", esp_err_to_name(keys), esp_err_to_name(battery),
         esp_err_to_name(ble), (unsigned)esp_get_free_heap_size());
     static char frame[CP_FRAME_MAX];
@@ -546,6 +599,10 @@ void app_main(void)
         if (s_voice.phase>=CP_VOICE_DONE && now-s_voice.since_ms>3500) s_voice.phase=CP_VOICE_IDLE;
         cp_key_t key;
         while (xQueueReceive(s_keys, &key, 0) == pdTRUE) handle_key(key);
+        if (cp_presenter_hold(&s_presenter_hold,atomic_load(&s_down_down),s_voice.phase==CP_VOICE_IDLE,now)) {
+            s_menu=0;
+            presenter_action(s_model.presenting ? "disable" : "enable");
+        }
         if (s_action_until && now > s_action_until) { s_action_until = 0; toast("同步超时，请重试"); }
         if (now - last_battery > 10000) { s_battery = bsp_battery_soc(); last_battery = now; }
         if (s_voice.phase!=CP_VOICE_IDLE) s_interaction=now;

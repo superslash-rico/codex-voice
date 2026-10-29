@@ -78,6 +78,10 @@ final class VoicePanelModel: ObservableObject {
     @Published var snapshot: [String: Any] = [:]
     @Published var now = Date().timeIntervalSince1970
     @Published var settingsOpen = false
+    @Published var presentationActive = false
+    @Published var presentationSupported = false
+    @Published var presentationStatus = 3
+    @Published var presentationTarget = "automatic"
     @Published var passportSettingsOpen = false
     @Published var passportPetNameDraft = "Codex"
     @Published var passportPetNameDraftBaseline = "Codex"
@@ -106,6 +110,13 @@ final class VoicePanelModel: ObservableObject {
     var retry: () -> Void = {}
     var connectCodex: () -> Void = {}
     var setupPassport: () -> Void = {}
+    var changePresentation: (Bool) -> Void = { _ in }
+    var changePresentationTarget: (String) -> Void = { _ in }
+    var presentationDetail: String {
+        guard presentationSupported else { return "连接支持演示模式的新版工牌后可用。" }
+        guard presentationActive else { return "长按工牌下键1.5秒开启；先在演示软件中开始放映。" }
+        return ["上下键翻页 · 提醒暂缓播报", "已暂停翻页，请返回演示软件并开始放映。", "需要输入权限；可在下方打开权限设置。", "正在等待电脑和工牌就绪…"][min(3,max(0,presentationStatus))]
+    }
     var changeComputerApproval: (Bool) -> Void = { _ in }
     var openApprovalAccess: () -> Void = {}
 

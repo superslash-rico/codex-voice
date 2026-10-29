@@ -58,7 +58,25 @@ int main(int argc,char **argv)
     cp_ui_render(&m,0,82,true,0,0,"",false,0,&voice,10000); save(argv[1],"05-done");
     voice.phase=CP_VOICE_IDLE; cp_model_init(&m);
     cp_ui_render(&m,0,82,true,0,0,"",false,0,&voice,10000); save(argv[1],"06-offline");
+    m.online=true; m.enabled=true; m.presenting=true; m.presenter_supported=true; m.presenter_ready=true;
+    m.presenter_target=1; m.total=3;
+    cp_ui_render(&m,0,82,true,0,0,"",true,0,&voice,10000); save(argv[1],"07-presenter");
+    m.presenter_ready=false; m.presenter_status=1;
+    cp_ui_render(&m,0,82,true,0,0,"",false,0,&voice,10000); save(argv[1],"08-presenter-paused");
+    m.presenter_status=2;
+    cp_ui_render(&m,0,82,true,0,0,"",false,0,&voice,10000); save(argv[1],"09-presenter-permission");
+    m.presenting=false; m.count=1; m.total=1; m.alerts[0].kind=CP_APPROVAL;
+    snprintf(m.alerts[0].title,sizeof(m.alerts[0].title),"退出演示后：提醒页面恢复");
+    cp_ui_render(&m,0,82,true,0,0,"",false,0,&voice,10000); save(argv[1],"10-reminder-restored");
+    /* Exercise the shared widgets and dark/light transitions repeatedly. */
+    for (int i=0;i<100;++i) {
+        m.presenting=(i%2)==0; m.presenter_ready=(i%4)==0;
+        m.presenter_status=m.presenter_ready ? 0:1;
+        cp_ui_render(&m,0,82,true,0,0,"",false,0,&voice,10000+(uint64_t)i*50);
+        lv_tick_inc(50); lv_refr_now(NULL);
+    }
     lv_mem_monitor_t mem; lv_mem_monitor(&mem);
+    assert(mem.free_biggest_size>=2048);
     printf("Actual LVGL render: PASS; pool used %zu / %zu bytes\n",mem.total_size-mem.free_size,mem.total_size);
     return 0;
 }

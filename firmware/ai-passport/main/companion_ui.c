@@ -14,6 +14,9 @@ static lv_obj_t *s_ring, *s_number, *s_period, *s_reset, *s_fresh;
 static lv_obj_t *s_kind, *s_title, *s_note, *s_position, *s_bar;
 static lv_obj_t *s_voice_title, *s_voice_note, *s_duration, *s_meter, *s_spinner, *s_check;
 static lv_obj_t *s_menu_title, *s_menu_body, *s_footer, *s_toast;
+static bool s_presentation_layout;
+static bool s_presentation_ready, s_presentation_dark;
+static lv_obj_t *s_present_pending;
 static int s_last_pet = -1;
 static lv_image_dsc_t s_pet_image;
 static const uint8_t *s_dynamic_pet;
@@ -37,6 +40,43 @@ static lv_obj_t *page(lv_obj_t *screen)
     lv_obj_t *obj = lv_obj_create(screen); lv_obj_remove_style_all(obj);
     lv_obj_set_pos(obj,0,49); lv_obj_set_size(obj,240,238);
     lv_obj_remove_flag(obj,LV_OBJ_FLAG_SCROLLABLE); return obj;
+}
+/* Draw the remote's large control zones without allocating more LVGL objects.
+ * The labels are shared with the mutually exclusive task page. */
+static void draw_presenter(lv_event_t *event)
+{
+    if (!s_presentation_layout) return;
+    lv_obj_t *obj=lv_event_get_target(event);
+    lv_layer_t *layer=lv_event_get_layer(event);
+    lv_area_t origin; lv_obj_get_coords(obj,&origin);
+    for (int i=0;i<2;++i) {
+        int top=i ? 140 : 76, bottom=i ? 200 : 128;
+        lv_draw_rect_dsc_t card; lv_draw_rect_dsc_init(&card);
+        card.radius=18; card.bg_opa=LV_OPA_COVER;
+        card.bg_color=lv_color_hex(i ? (s_presentation_ready ? 0x0a84ff : 0x263142) : 0x222a35);
+        card.border_width=i ? 0 : 1; card.border_color=lv_color_hex(0x3a4554);
+        lv_area_t area={origin.x1+20,origin.y1+top,origin.x1+219,origin.y1+bottom};
+        lv_draw_rect(layer,&card,&area);
+        int cy=origin.y1+(top+bottom)/2;
+        lv_draw_line_dsc_t arrow; lv_draw_line_dsc_init(&arrow);
+        arrow.width=3; arrow.round_start=arrow.round_end=true;
+        arrow.color=lv_color_hex(s_presentation_ready ? 0xffffff : 0x8190a3);
+        arrow.p1=(lv_point_precise_t){origin.x1+38,cy+(i ? -3 : 3)};
+        arrow.p2=(lv_point_precise_t){origin.x1+45,cy+(i ? 4 : -4)};
+        lv_draw_line(layer,&arrow);
+        arrow.p1=arrow.p2; arrow.p2=(lv_point_precise_t){origin.x1+52,cy+(i ? -3 : 3)};
+        lv_draw_line(layer,&arrow);
+        lv_draw_label_dsc_t hint; lv_draw_label_dsc_init(&hint);
+        hint.font=&cp_font16; hint.text=i ? "下键" : "上键";
+        hint.color=lv_color_hex(i && s_presentation_ready ? 0xd9ecff : 0x8795a8);
+        lv_area_t hint_area={origin.x1+167,origin.y1+(i ? 156 : 88),origin.x1+210,origin.y1+bottom};
+        lv_draw_label(layer,&hint,&hint_area);
+    }
+    lv_draw_rect_dsc_t dot; lv_draw_rect_dsc_init(&dot);
+    dot.radius=LV_RADIUS_CIRCLE; dot.bg_opa=LV_OPA_COVER;
+    dot.bg_color=lv_color_hex(s_presentation_ready ? 0x30d158 : 0xffb340);
+    lv_area_t dot_area={origin.x1+22,origin.y1+41,origin.x1+27,origin.y1+46};
+    lv_draw_rect(layer,&dot,&dot_area);
 }
 void cp_ui_init(void)
 {
@@ -75,6 +115,10 @@ void cp_ui_init(void)
     s_title=label(s_pages[2],20,59,200,75,&cp_font16);
     s_note=label(s_pages[2],20,145,200,51,&cp_font16); muted(s_note);
     s_position=label(s_pages[2],20,209,200,22,&cp_font16); muted(s_position);
+    s_present_pending=label(s_pages[2],20,207,200,31,&cp_font16); center(s_present_pending);
+    lv_obj_set_style_text_color(s_present_pending,lv_color_hex(0x8795a8),0);
+    lv_obj_add_flag(s_present_pending,LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_event_cb(s_pages[2],draw_presenter,LV_EVENT_DRAW_MAIN,NULL);
 
     s_voice_title=label(s_pages[3],18,29,204,31,&cp_font20); center(s_voice_title);
     s_duration=label(s_pages[3],25,80,190,72,&cp_digits58); center(s_duration);
@@ -112,13 +156,46 @@ void cp_ui_render(const cp_model_t *m, uint32_t passkey, int battery, bool audio
     }
     char temp[256], body[256];
     bool speaking=voice->phase!=CP_VOICE_IDLE;
-    int p=passkey || menu ? 4 : speaking ? 3 : asleep ? 0 : m->count ? 2 : 1;
+    int p=passkey || menu ? 4 : speaking ? 3 : m->presenting ? 5 : asleep ? 0 : m->count ? 2 : 1;
     for (int i=0;i<5;++i) {
-        if (p==i) lv_obj_remove_flag(s_pages[i],LV_OBJ_FLAG_HIDDEN);
+        if ((p==5 ? 2 : p)==i) lv_obj_remove_flag(s_pages[i],LV_OBJ_FLAG_HIDDEN);
         else lv_obj_add_flag(s_pages[i],LV_OBJ_FLAG_HIDDEN);
     }
+    /* Presentation and task content are mutually exclusive. Reuse their label
+     * objects so the no-PSRAM board retains its existing 32 KiB LVGL budget. */
+    if ((p==2 || p==5) && s_presentation_layout!=(p==5)) {
+        s_presentation_layout=p==5;
+        if (s_presentation_layout) {
+            lv_obj_add_flag(s_bar,LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_pos(s_kind,20,0); lv_obj_set_size(s_kind,200,29);
+            lv_obj_set_style_text_color(s_kind,lv_color_hex(0xf5f7fa),0);
+            lv_obj_set_pos(s_title,68,94); lv_obj_set_size(s_title,94,29);
+            lv_obj_set_style_text_font(s_title,&cp_font20,0); lv_obj_set_style_text_color(s_title,lv_color_hex(0xffffff),0);
+            lv_obj_set_pos(s_note,68,162); lv_obj_set_size(s_note,94,29);
+            lv_obj_set_style_text_font(s_note,&cp_font20,0); lv_obj_set_style_text_color(s_note,lv_color_hex(0xffffff),0);
+            lv_obj_set_pos(s_position,38,30); lv_obj_set_size(s_position,182,31);
+        } else {
+            lv_obj_remove_flag(s_bar,LV_OBJ_FLAG_HIDDEN);
+            lv_obj_set_pos(s_kind,34,8); lv_obj_set_size(s_kind,187,29); lv_obj_set_style_text_align(s_kind,LV_TEXT_ALIGN_LEFT,0);
+            lv_obj_set_pos(s_title,20,59); lv_obj_set_size(s_title,200,75); lv_obj_set_style_text_align(s_title,LV_TEXT_ALIGN_LEFT,0);
+            lv_obj_set_style_text_font(s_title,&cp_font16,0); lv_obj_set_style_text_color(s_title,lv_color_hex(0x202124),0);
+            lv_obj_set_pos(s_note,20,145); lv_obj_set_size(s_note,200,51); lv_obj_set_style_text_align(s_note,LV_TEXT_ALIGN_LEFT,0);
+            lv_obj_set_style_text_font(s_note,&cp_font16,0); muted(s_note);
+            lv_obj_set_pos(s_position,20,209); lv_obj_set_size(s_position,200,22);
+            lv_obj_set_style_text_align(s_position,LV_TEXT_ALIGN_LEFT,0); muted(s_position);
+        }
+    }
+    if (s_presentation_dark!=(p==5)) {
+        s_presentation_dark=p==5;
+        lv_obj_set_style_bg_color(lv_obj_get_parent(s_pages[2]),lv_color_hex(s_presentation_dark ? 0x101419 : 0xfafafc),0);
+        lv_obj_set_style_text_color(s_status,lv_color_hex(s_presentation_dark ? 0x8795a8 : 0x202124),0);
+        lv_obj_set_style_text_color(s_battery,lv_color_hex(s_presentation_dark ? 0x8795a8 : 0x777983),0);
+        lv_obj_set_style_text_color(s_footer,lv_color_hex(s_presentation_dark ? 0x8795a8 : 0x777983),0);
+    }
+    if (p==5) lv_obj_remove_flag(s_present_pending,LV_OBJ_FLAG_HIDDEN);
+    else lv_obj_add_flag(s_present_pending,LV_OBJ_FLAG_HIDDEN);
     snprintf(temp,sizeof(temp),battery<0 ? "--" : "%d%%",battery); text(s_battery,temp);
-    text(s_status,!m->online ? "CODEX / OFFLINE" : (m->muted || !m->enabled) ? "CODEX / QUIET" : "CODEX");
+    text(s_status,p==5 ? "PRESENTATION" : !m->online ? "CODEX / OFFLINE" : (m->muted || !m->enabled) ? "CODEX / QUIET" : "CODEX");
     text(s_footer,p==0 ? "任意键唤醒" : p==3 ? "松开确认键结束" : "按住确认键讲话");
     if (toast && toast[0]) { text(s_toast,toast); lv_obj_remove_flag(s_toast,LV_OBJ_FLAG_HIDDEN); }
     else lv_obj_add_flag(s_toast,LV_OBJ_FLAG_HIDDEN);
@@ -193,6 +270,15 @@ void cp_ui_render(const cp_model_t *m, uint32_t passkey, int battery, bool audio
         } else text(s_voice_note,voice->message[0] ? voice->message : voice->phase==CP_VOICE_RECORDING ? "保持按住 · 松开结束" : voice->phase==CP_VOICE_PREPARING ? "听到开始音后再讲话" : "请稍候");
         lv_bar_set_value(s_meter,voice->phase==CP_VOICE_RECORDING ? voice->level : 0,LV_ANIM_OFF);
         text(s_footer,voice->phase==CP_VOICE_RECORDING ? "最长30秒 · 松开结束" : "按住确认键讲话");
+    } else if (p==5) {
+        static const char *targets[]={"演示遥控","PowerPoint","Keynote","WPS"};
+        static const char *states[]={"已连接，可以翻页","已暂停，返回放映","开启电脑输入权限","正在连接电脑"};
+        if (s_presentation_ready!=m->presenter_ready) { s_presentation_ready=m->presenter_ready; lv_obj_invalidate(s_pages[2]); }
+        text(s_kind,targets[m->presenter_target]); text(s_title,"上一页"); text(s_note,"下一页");
+        text(s_position,states[m->presenter_status]);
+        lv_obj_set_style_text_color(s_position,lv_color_hex(m->presenter_ready ? 0x30d158 : 0xffb340),0);
+        snprintf(temp,sizeof(temp),m->total ? "%d条提醒已暂存" : "提醒暂缓播报",m->total); text(s_present_pending,temp);
+        text(s_footer,"长按下键退出");
     } else {
         if (passkey) {
             text(s_menu_title,"蓝牙配对");

@@ -7,6 +7,7 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES = {
+    "presenter": (["PassportPresenter.swift"], ["AppKit", "ApplicationServices"]),
     "computer_approval": (["ComputerUseApproval.swift"], ["AppKit", "ApplicationServices"]),
     "protocol": (["PassportProtocol.swift"], ["Foundation"]),
     "audio": (["PassportAudio.swift"], ["Foundation"]),

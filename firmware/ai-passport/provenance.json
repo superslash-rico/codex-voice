@@ -1,7 +1,7 @@
 {
   "upstream": "https://github.com/FoloToy/ai-passport",
   "upstreamCommit": "006c2279852e352a8433b2c21e5e09be2ca36f77",
-  "variant": "Codex companion 0.3.0-pets",
+  "variant": "Codex companion 0.4.0-presenter",
   "integration": "source snapshot, not a Git submodule",
   "sourceFileCount": 408,
   "snapshotSHA256": "9e302f86ea729b0483db27a6bc5670cec1923b64c3d5f9eee50c815b563a841a",
@@ -10,7 +10,8 @@
     "local Mandarin dictation transport and clean cues",
     "A/B pet resource storage and custom partition layout",
     "audio recovery and battery read behavior",
-    "Chinese fonts, fixed speech, pet fallback resources and host tests"
+    "Chinese fonts, fixed speech, pet fallback resources and host tests",
+    "presentation-mode gestures, authenticated short-lived control frames and dark remote UI with shared labels"
   ],
   "excluded": [
     ".git",
@@ -23,5 +24,6 @@
     "Sanitize absolute local paths in font generator comments",
     "Replace historical private build-artifact links with explicit local-only references",
     "Add paired variant README and release changelog"
-  ]
+  ],
+  "snapshotScope": "sourceFileCount and snapshotSHA256 describe the original imported 0.3.0-pets snapshot, before later commits in this repository"
 }

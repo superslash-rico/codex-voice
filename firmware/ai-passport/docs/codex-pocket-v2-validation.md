@@ -15,7 +15,7 @@ Unverified: physical voice throughput, on-device UI/cues, actual microphone accu
 - Full-image SHA-256: `27e96e8b21ebf61506605e2161d7f075dfe49336809047a35cc8542b1e54d657`.
 - Matching ELF SHA-256: `2cf3edad5962d65effa0a2da60ccc846864fc1303ecf0df24904a5513a5b3b71`.
 - Verified merged image (`../build/firmware/27e96e8b21ebf61506605e2161d7f075dfe49336809047a35cc8542b1e54d657/FoloToy-AI-Passport-full.bin`; retained locally; not included in public source): 5,482,000 bytes, flash at 0x0. Application 5,416,464 / 8,323,072 bytes. The retained archive includes the matching ELF, MAP, application, bootloader, partition table and manifest; separate archive verification passed.
-- The target chip and 8 MB capacity were rechecked on `/dev/cu.usbmodem101` before flashing. The subsequent announced nine-second startup monitor is closed and is not reopened during pairing or recording.
+- The target chip and 8 MB capacity were rechecked on the locally detected USB serial port before flashing; the machine-specific port label is omitted from this public record. The subsequent announced nine-second startup monitor is closed and is not reopened during pairing or recording.
 - The previous 0.1.0-codex archive (`07400e491bff…`) is retained. The user has now explicitly approved and flashed the exact new image above; full write-hash verification passed.
 - A merged flash replaces the badge program and may reset NVS / Bluetooth pairing. No full-chip erase or original-firmware readback is planned. Original validated artifacts remain available.
 - Mac companion: 0.7.0-pocket.2, a separately named Passport test application, identifier `local.rico.CodexVoice.Passport`, bundle build 21, universal arm64/x86_64. The installed original app and hooks are not replaced.
